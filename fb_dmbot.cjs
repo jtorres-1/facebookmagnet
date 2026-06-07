@@ -11,15 +11,18 @@ const MAX_DMS_PER_SESSION = 100;
 const MIN_DELAY_MS = 30000;
 const MAX_DELAY_MS = 60000;
 const PROFILE_LOAD_WAIT = 4000;
-const POST_CLICK_WAIT = 4000;
-const SEARCH_WAIT = 4000;
+const POST_CLICK_WAIT = 5000;
 
 const SELLER_SIGNALS = [
-  "i build", "i develop", "hire me", "my services", "i offer",
-  "available for hire", "for hire", "my portfolio", "i specialize",
-  "check out my", "i am a developer", "i am a web", "i create",
-  "i code", "i design", "my rates", "i do freelance", "i provide",
-  "offering my services", "i am available", "years of experience"
+  "i offer", "i build", "i provide", "my services", "check out my",
+  "i am a developer", "i am a web developer", "i specialize in",
+  "hire me", "my portfolio", "i can build", "i develop", "i create",
+  "i code", "i design websites", "years of experience",
+  "available for hire", "for hire", "i do freelance",
+  "offering my services", "i am a programmer", "i am a coder",
+  "i am a freelancer", "looking for clients", "seeking clients",
+  "looking for projects", "open to projects", "taking on projects",
+  "upwork", "fiverr", "toptal",
 ];
 
 const DM_MESSAGE = `hey! saw your post. i'm a python developer based in LA available immediately. i build websites, scrapers, bots, ai integrations, and automation pipelines. 48 hour delivery, flat fee.
@@ -78,38 +81,42 @@ async function loadSession(page) {
   console.log("Session loaded.");
 }
 
-async function getProfileFromSearch(page, name) {
+async function getProfileFromPost(page, postUrl, authorName) {
   try {
-    await page.goto(
-      `https://www.facebook.com/search/people/?q=${encodeURIComponent(name)}`,
-      { waitUntil: "networkidle2", timeout: 30000 }
-    );
-    await sleep(SEARCH_WAIT);
-    return await page.evaluate(() => {
+    await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 30000 });
+    await sleep(rand(3000, 5000));
+
+    const profileUrl = await page.evaluate((authorName) => {
+      // Find all links and look for the author's profile
       const links = Array.from(document.querySelectorAll('a[href*="facebook.com"]'));
       for (const a of links) {
+        const text = a.innerText?.trim();
         const href = a.href.split('&__cft__')[0].split('&__tn__')[0];
         if (
+          text === authorName &&
           (href.match(/facebook\.com\/[a-zA-Z0-9._]{3,}$/) ||
            href.match(/facebook\.com\/profile\.php\?id=/)) &&
           !href.includes('/groups/') &&
-          !href.includes('/search/') &&
-          !href.includes('/events/')
+          !href.includes('/events/') &&
+          !href.includes('/photo') &&
+          !href.includes('/posts/')
         ) {
-          const name = a.innerText?.trim();
-          if (name && name !== 'Facebook' && name.length > 1) return href;
+          return href;
         }
       }
       return null;
-    });
-  } catch {
+    }, authorName);
+
+    return profileUrl;
+  } catch (err) {
+    console.log(`Error loading post for ${authorName}: ${err.message}`);
     return null;
   }
 }
 
-async function sendDM(page, profile, name, keyword, score) {
+async function sendDM(page, profileUrl, name, keyword, score) {
   try {
-    await page.goto(profile, { waitUntil: "networkidle2", timeout: 30000 });
+    await page.goto(profileUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(PROFILE_LOAD_WAIT + rand(0, 2000));
 
     // Find Message button on profile page only
@@ -124,7 +131,7 @@ async function sendDM(page, profile, name, keyword, score) {
     await msgBtn.click();
     await sleep(POST_CLICK_WAIT + rand(0, 1500));
 
-    // Wait for messenger chat popup specifically — not comment box
+    // Wait for messenger chat popup specifically
     const msgBox = await page.waitForSelector(
       'div[data-lexical-editor="true"]',
       { visible: true, timeout: 8000 }
@@ -189,22 +196,30 @@ async function sendDM(page, profile, name, keyword, score) {
       continue;
     }
 
-    // Skip sellers
     if (isSeller(lead)) {
       console.log(`SKIP — seller detected: ${lead.Author}`);
+      sent[key] = { name: lead.Author, skipped: true, reason: 'seller', sent_at: new Date().toISOString() };
+      saveSent(sent);
       totalSkipped++;
       continue;
     }
 
-    let profileUrl = lead.Profile && lead.Profile.length > 10 ? lead.Profile : null;
+    // Get profile URL — from post URL first, then fall back to scraped profile URL
+    let profileUrl = null;
+
+    if (lead.PostURL && lead.PostURL.length > 10) {
+      console.log(`Loading post to find ${lead.Author}...`);
+      profileUrl = await getProfileFromPost(page, lead.PostURL, lead.Author);
+    }
+
+    if (!profileUrl && lead.ProfileURL && lead.ProfileURL.length > 10) {
+      profileUrl = lead.ProfileURL;
+    }
+
     if (!profileUrl) {
-      console.log(`Searching for ${lead.Author}...`);
-      profileUrl = await getProfileFromSearch(page, lead.Author);
-      if (!profileUrl) {
-        console.log(`SKIP — could not find profile for ${lead.Author}`);
-        totalSkipped++;
-        continue;
-      }
+      console.log(`SKIP — could not find profile for ${lead.Author}`);
+      totalSkipped++;
+      continue;
     }
 
     const result = await sendDM(page, profileUrl, lead.Author, lead.Keyword, lead.Score);

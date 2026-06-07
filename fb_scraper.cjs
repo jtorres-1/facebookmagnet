@@ -7,51 +7,58 @@ const SESSION_PATH = "./session.json";
 const LEADS_PATH = "./fb_leads.csv";
 const SENT_PATH = "./fb_sent.json";
 
-// High intent search queries — each one searches Facebook posts globally
+// TIGHT buyer-only queries — only phrases a BUYER would use, not a developer
 const SEARCH_QUERIES = [
-  "need a website developer",
-  "looking for a web developer",
-  "hire a web developer",
-  "need a website built",
-  "need a developer",
-  "looking for a developer",
-  "hire a developer",
-  "need a programmer",
-  "looking for a programmer",
-  "need a freelance developer",
-  "hire a freelance developer",
-  "need an app built",
-  "need a mobile app developer",
-  "need a python developer",
-  "need automation built",
-  "need a bot built",
-  "need a scraper built",
-  "need a chatbot built",
-  "need ai integration",
-  "need a shopify developer",
-  "need a wordpress developer",
-  "need a react developer",
-  "need a full stack developer",
-  "need a landing page built",
+  "need a website for my business",
   "need someone to build my website",
-  "looking for someone to build",
-  "need a tech person",
-  "need coding help",
+  "looking for someone to build my website",
+  "need a website built for my",
+  "how much does a website cost",
+  "need a landing page built",
+  "need an ecommerce website",
+  "need a shopify store built",
+  "need a wordpress site built",
+  "need a mobile app built",
+  "need an app built for my business",
+  "looking to hire a developer",
+  "need to hire a developer",
+  "need someone to build an app",
+  "need a chatbot for my business",
+  "need automation for my business",
+  "need a scraper built",
+  "need a bot built for",
   "need api integration",
+  "need someone to code",
+  "will pay for website",
   "will pay for developer",
-  "paying for website",
+  "paying for website development",
+  "budget for website",
   "budget for developer",
-  "urgent need developer",
-  "asap need developer",
+  "need a web developer urgently",
+  "need a developer asap",
+  "need a freelancer to build",
+  "looking for a freelancer to build",
+  "need tech help for my business",
+  "need someone to automate",
+  "need workflow automation",
+  "need a python script built",
 ];
 
+// Strong seller signals — skip anyone who looks like a developer selling
 const SELLER_SIGNALS = [
   "i offer", "i build", "i provide", "my services", "check out my",
-  "i am a developer", "i am a web", "i specialize", "hire me",
-  "my portfolio", "i can build", "i develop", "i design",
-  "years of experience", "dm me for", "contact me for",
-  "i am available", "i am offering", "my rates",
-  "i am an expert", "message me for", "whatsapp me", "i do freelance",
+  "i am a developer", "i am a web developer", "i specialize in",
+  "hire me", "my portfolio", "i can build", "i develop", "i create",
+  "i code", "i design websites", "years of experience", "dm me for work",
+  "contact me for", "i am available for", "i am offering", "my rates are",
+  "i am an expert", "message me for work", "whatsapp me", "i do freelance",
+  "offering my services", "available for hire", "for hire",
+  "i have experience in", "i work as a", "i am a programmer",
+  "i am a coder", "i am a freelancer", "my work includes",
+  "i just launched", "i just built", "i recently built",
+  "check my profile", "check my github", "upwork", "fiverr",
+  "toptal", "freelancer.com", "looking for clients", "seeking clients",
+  "looking for projects", "open to projects", "taking on projects",
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -62,7 +69,8 @@ const csvWriter = createObjectCsvWriter({
   header: [
     { id: "time", title: "Time" },
     { id: "author", title: "Author" },
-    { id: "profile", title: "Profile" },
+    { id: "postUrl", title: "PostURL" },
+    { id: "profileUrl", title: "ProfileURL" },
     { id: "keyword", title: "Keyword" },
     { id: "score", title: "Score" },
     { id: "dmed", title: "DMed" },
@@ -89,7 +97,6 @@ async function searchPosts(page, query) {
   const leads = {};
 
   try {
-    // Search posts, filter by recent (past week)
     const url = `https://www.facebook.com/search/posts/?q=${encodeURIComponent(query)}&filters=eyJyZWNlbnRseVNlZW4iOiJ7XCJuYW1lXCI6XCJjcmVhdGlvbl90aW1lXCIsXCJhcmdzXCI6XCIwXCJ9In0%3D`;
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(rand(4000, 6000));
@@ -118,12 +125,21 @@ async function searchPosts(page, query) {
 
           const text = (container.innerText || '').toLowerCase();
 
-          // Skip sellers
+          // Skip sellers hard
           const isSeller = sellerSignals.some(s => text.includes(s));
           if (isSeller) return;
 
-          // Score the lead
-          let score = 3; // base score — already matched the search query
+          // Must look like a buyer — post should contain question or need language
+          const buyerSignals = [
+            "need", "looking for", "hire", "want", "help me", "how much",
+            "budget", "will pay", "paying", "urgent", "asap", "anyone",
+            "recommend", "suggest", "can someone", "who can", "where can i find"
+          ];
+          const isBuyer = buyerSignals.some(s => text.includes(s));
+          if (!isBuyer) return;
+
+          // Score
+          let score = 3;
           if (text.includes("budget")) score += 5;
           if (text.includes("will pay")) score += 5;
           if (text.includes("paying")) score += 4;
@@ -135,10 +151,19 @@ async function searchPosts(page, query) {
           if (text.includes("hire")) score += 2;
           if (text.includes("project")) score += 2;
           if (text.includes("paid") || text.includes("payment")) score += 2;
+          if (text.includes("business")) score += 2;
 
-          // Get profile
-          const anchors = Array.from(container.querySelectorAll('a[href*="facebook.com"]'));
-          const profileAnchor = anchors.find(a => {
+          // Get post permalink
+          const allLinks = Array.from(container.querySelectorAll('a[href*="facebook.com"]'));
+
+          const postLink = allLinks.find(a =>
+            a.href.includes('/posts/') ||
+            a.href.includes('/permalink/') ||
+            a.href.includes('story_fbid')
+          );
+
+          // Get profile link
+          const profileLink = allLinks.find(a => {
             const href = a.href.split('?')[0];
             return (href.match(/facebook\.com\/[a-zA-Z0-9._]{3,}$/) ||
                     href.match(/facebook\.com\/profile\.php\?id=/)) &&
@@ -148,11 +173,20 @@ async function searchPosts(page, query) {
                    !href.includes('/posts/');
           });
 
-          const profileHref = profileAnchor ?
-            profileAnchor.href.split('&__cft__')[0].split('&__tn__')[0] : null;
+          const postUrl = postLink ? postLink.href.split('&__cft__')[0] : null;
+          const profileUrl = profileLink ? profileLink.href.split('&__cft__')[0].split('&__tn__')[0] : null;
+
+          // Need at least a post URL to be useful
+          if (!postUrl && !profileUrl) return;
 
           if (!results[authorName] || score > results[authorName].score) {
-            results[authorName] = { author: authorName, profile: profileHref, keyword: query, score };
+            results[authorName] = {
+              author: authorName,
+              postUrl: postUrl || '',
+              profileUrl: profileUrl || '',
+              keyword: query,
+              score
+            };
           }
         });
 
@@ -207,14 +241,14 @@ async function searchPosts(page, query) {
     await sleep(rand(3000, 5000));
   }
 
-  // Sort all leads by score and save
   const sorted = Object.values(allLeads).sort((a, b) => b.score - a.score);
 
   if (sorted.length > 0) {
     await csvWriter.writeRecords(sorted.map(l => ({
       time: new Date().toISOString(),
       author: l.author,
-      profile: l.profile || '',
+      postUrl: l.postUrl || '',
+      profileUrl: l.profileUrl || '',
       keyword: l.keyword,
       score: l.score,
       dmed: 'false'
