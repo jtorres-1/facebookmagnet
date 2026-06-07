@@ -13,19 +13,7 @@ const MAX_DELAY_MS = 60000;
 const PROFILE_LOAD_WAIT = 4000;
 const POST_CLICK_WAIT = 5000;
 
-const SELLER_SIGNALS = [
-  "i offer", "i build", "i provide", "my services", "check out my",
-  "i am a developer", "i am a web developer", "i specialize in",
-  "hire me", "my portfolio", "i can build", "i develop", "i create",
-  "i code", "i design websites", "years of experience",
-  "available for hire", "for hire", "i do freelance",
-  "offering my services", "i am a programmer", "i am a coder",
-  "i am a freelancer", "looking for clients", "seeking clients",
-  "looking for projects", "open to projects", "taking on projects",
-  "upwork", "fiverr", "toptal",
-];
-
-const DM_MESSAGE = `hey! saw your post. i'm a python developer based in LA available immediately. i build websites, scrapers, bots, ai integrations, and automation pipelines. 48 hour delivery, flat fee.
+const DEVHIRE_MESSAGE = `hey! saw your post. i'm a python developer based in LA available immediately. i build websites, scrapers, bots, ai integrations, and automation pipelines. 48 hour delivery, flat fee.
 
 recent work:
 restaurant site: https://casa-fuego-demo.netlify.app
@@ -38,8 +26,15 @@ github: https://github.com/jtorres-1
 
 dm me a scope.`;
 
+const MAPZAP_MESSAGES = [
+  `saw your post — thought this might help. i built a tool that pulls 100 local business leads as a CSV in about 60 seconds. type a business type and city, get names, phone numbers, and addresses instantly. $49 one time, no subscription. https://mapzap.org`,
+  `random but saw your post and thought of this — i built mapzap, pulls 100 local business leads in 60 seconds. name, phone, address, CSV download. one time $49, no monthly fee. https://mapzap.org`,
+  `this might save you some time — built a tool that scrapes 100 local businesses in 60 seconds. type a niche and city, download a CSV with names, phones, addresses. $49 once. https://mapzap.org`,
+];
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
 function loadSent() {
   if (!fs.existsSync(SENT_PATH)) return {};
@@ -53,11 +48,6 @@ function saveSent(data) {
 function alreadySent(sent, author) {
   if (!author) return true;
   return !!sent[author.toLowerCase()];
-}
-
-function isSeller(lead) {
-  const text = ((lead.Keyword || '') + ' ' + (lead.Author || '')).toLowerCase();
-  return SELLER_SIGNALS.some(s => text.includes(s));
 }
 
 function loadLeads() {
@@ -86,8 +76,7 @@ async function getProfileFromPost(page, postUrl, authorName) {
     await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(rand(3000, 5000));
 
-    const profileUrl = await page.evaluate((authorName) => {
-      // Find all links and look for the author's profile
+    return await page.evaluate((authorName) => {
       const links = Array.from(document.querySelectorAll('a[href*="facebook.com"]'));
       for (const a of links) {
         const text = a.innerText?.trim();
@@ -106,20 +95,16 @@ async function getProfileFromPost(page, postUrl, authorName) {
       }
       return null;
     }, authorName);
-
-    return profileUrl;
-  } catch (err) {
-    console.log(`Error loading post for ${authorName}: ${err.message}`);
+  } catch {
     return null;
   }
 }
 
-async function sendDM(page, profileUrl, name, keyword, score) {
+async function sendDM(page, profileUrl, name, message) {
   try {
     await page.goto(profileUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(PROFILE_LOAD_WAIT + rand(0, 2000));
 
-    // Find Message button on profile page only
     const msgBtn = await page.$('[aria-label="Message"]') ||
                    await page.$('[aria-label="Send message"]');
 
@@ -131,11 +116,8 @@ async function sendDM(page, profileUrl, name, keyword, score) {
     await msgBtn.click();
     await sleep(POST_CLICK_WAIT + rand(0, 1500));
 
-    // Wait for messenger chat popup specifically
-    // Wait for messenger popup to fully open
     await sleep(rand(2000, 3000));
-    
-    // Target the chat input inside the popup specifically — not comment box
+
     const msgBox = await page.waitForSelector(
       'div[aria-label^="Write to"][data-lexical-editor="true"], div[aria-label^="Message"][data-lexical-editor="true"]',
       { visible: true, timeout: 8000 }
@@ -148,12 +130,12 @@ async function sendDM(page, profileUrl, name, keyword, score) {
 
     await msgBox.click();
     await sleep(rand(800, 1500));
-    await page.keyboard.type(DM_MESSAGE, { delay: rand(18, 45) });
+    await page.keyboard.type(message, { delay: rand(18, 45) });
     await sleep(rand(800, 1500));
     await page.keyboard.press("Enter");
     await sleep(rand(1500, 3000));
 
-    console.log(`SENT → ${name} | ${keyword} | score:${score}`);
+    console.log(`SENT → ${name}`);
     return 'sent';
   } catch (err) {
     console.log(`ERROR — DM failed for ${name}: ${err.message}`);
@@ -200,19 +182,15 @@ async function sendDM(page, profileUrl, name, keyword, score) {
       continue;
     }
 
-    if (isSeller(lead)) {
-      console.log(`SKIP — seller detected: ${lead.Author}`);
-      sent[key] = { name: lead.Author, skipped: true, reason: 'seller', sent_at: new Date().toISOString() };
-      saveSent(sent);
-      totalSkipped++;
-      continue;
-    }
+    // Pick message based on product
+    const product = (lead.Product || 'DEVHIRE').toUpperCase();
+    const message = product === 'MAPZAP' ? pick(MAPZAP_MESSAGES) : DEVHIRE_MESSAGE;
 
-    // Get profile URL — from post URL first, then fall back to scraped profile URL
+    // Get profile URL from post first, fallback to scraped profile
     let profileUrl = null;
 
     if (lead.PostURL && lead.PostURL.length > 10) {
-      console.log(`Loading post to find ${lead.Author}...`);
+      console.log(`Loading post to find ${lead.Author}... [${product}]`);
       profileUrl = await getProfileFromPost(page, lead.PostURL, lead.Author);
     }
 
@@ -226,20 +204,21 @@ async function sendDM(page, profileUrl, name, keyword, score) {
       continue;
     }
 
-    const result = await sendDM(page, profileUrl, lead.Author, lead.Keyword, lead.Score);
+    const result = await sendDM(page, profileUrl, lead.Author, message);
 
     if (result === 'sent') {
       sent[key] = {
         name: lead.Author,
         profile: profileUrl,
         keyword: lead.Keyword,
+        product: product,
         score: lead.Score,
         sent_at: new Date().toISOString()
       };
       saveSent(sent);
       totalSent++;
       const delay = rand(MIN_DELAY_MS, MAX_DELAY_MS);
-      console.log(`Waiting ${Math.round(delay / 1000)}s... (${totalSent}/${MAX_DMS_PER_SESSION} sent)`);
+      console.log(`Waiting ${Math.round(delay / 1000)}s... (${totalSent}/${MAX_DMS_PER_SESSION} sent) [${product}]`);
       await sleep(delay);
     } else {
       if (result === 'no_button') {

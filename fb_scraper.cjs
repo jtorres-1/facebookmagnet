@@ -7,58 +7,78 @@ const SESSION_PATH = "./session.json";
 const LEADS_PATH = "./fb_leads.csv";
 const SENT_PATH = "./fb_sent.json";
 
-// TIGHT buyer-only queries — only phrases a BUYER would use, not a developer
-const SEARCH_QUERIES = [
+// DEVHIRE — people who NEED a developer built something. NO developers.
+const DEVHIRE_QUERIES = [
   "need a website for my business",
   "need someone to build my website",
   "looking for someone to build my website",
   "need a website built for my",
   "how much does a website cost",
   "need a landing page built",
-  "need an ecommerce website",
+  "need an ecommerce website built",
   "need a shopify store built",
   "need a wordpress site built",
-  "need a mobile app built",
+  "need a mobile app built for my",
   "need an app built for my business",
-  "looking to hire a developer",
-  "need to hire a developer",
+  "looking to hire a developer for my",
+  "need to hire a developer for",
   "need someone to build an app",
   "need a chatbot for my business",
   "need automation for my business",
-  "need a scraper built",
-  "need a bot built for",
-  "need api integration",
-  "need someone to code",
+  "need a bot built for my",
+  "need api integration for my",
+  "need someone to automate my",
+  "need workflow automation for",
   "will pay for website",
   "will pay for developer",
   "paying for website development",
   "budget for website",
   "budget for developer",
-  "need a web developer urgently",
   "need a developer asap",
-  "need a freelancer to build",
-  "looking for a freelancer to build",
+  "need a web developer urgently",
+  "need a freelancer to build my",
   "need tech help for my business",
-  "need someone to automate",
-  "need workflow automation",
-  "need a python script built",
+  "need a python script for my",
+  "need a custom website",
 ];
 
-// Strong seller signals — skip anyone who looks like a developer selling
-const SELLER_SIGNALS = [
+// MAPZAP — business owners who need leads
+const MAPZAP_QUERIES = [
+  "need leads for my business",
+  "looking for business leads",
+  "how to find more customers",
+  "need more clients for my business",
+  "where to find leads",
+  "need a lead list",
+  "need local business leads",
+  "how to get more customers for my",
+  "need more sales leads",
+  "cold outreach help",
+  "need to find prospects",
+  "looking for potential clients",
+  "how do I find new clients",
+  "need customer leads",
+  "struggling to find clients",
+];
+
+// Block developers and software agencies from DEVHIRE leads
+const DEV_AGENCY_SIGNALS = [
   "i offer", "i build", "i provide", "my services", "check out my",
   "i am a developer", "i am a web developer", "i specialize in",
   "hire me", "my portfolio", "i can build", "i develop", "i create",
-  "i code", "i design websites", "years of experience", "dm me for work",
-  "contact me for", "i am available for", "i am offering", "my rates are",
-  "i am an expert", "message me for work", "whatsapp me", "i do freelance",
-  "offering my services", "available for hire", "for hire",
-  "i have experience in", "i work as a", "i am a programmer",
-  "i am a coder", "i am a freelancer", "my work includes",
-  "i just launched", "i just built", "i recently built",
-  "check my profile", "check my github", "upwork", "fiverr",
-  "toptal", "freelancer.com", "looking for clients", "seeking clients",
+  "i code", "i design websites", "years of experience",
+  "available for hire", "for hire", "i do freelance",
+  "offering my services", "i am a programmer", "i am a coder",
+  "i am a freelancer", "looking for clients", "seeking clients",
   "looking for projects", "open to projects", "taking on projects",
+  "upwork", "fiverr", "toptal", "freelancer.com",
+  "web design agency", "web development agency", "software agency",
+  "digital agency", "our team", "our developers", "we build",
+  "we develop", "we offer", "we specialize", "we provide",
+  "our services", "our portfolio", "our clients", "we have built",
+  "agency owner", "software company", "tech company", "it company",
+  "web studio", "design studio", "development studio",
+  "we are a", "our company", "founded in", "est.", "established",
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -73,6 +93,7 @@ const csvWriter = createObjectCsvWriter({
     { id: "profileUrl", title: "ProfileURL" },
     { id: "keyword", title: "Keyword" },
     { id: "score", title: "Score" },
+    { id: "product", title: "Product" },
     { id: "dmed", title: "DMed" },
   ],
   append: fs.existsSync(LEADS_PATH)
@@ -92,8 +113,8 @@ async function loadSession(page) {
   console.log("Session loaded.");
 }
 
-async function searchPosts(page, query) {
-  console.log(`\nSearching: "${query}"`);
+async function searchPosts(page, query, product) {
+  console.log(`\nSearching: "${query}" [${product}]`);
   const leads = {};
 
   try {
@@ -107,7 +128,7 @@ async function searchPosts(page, query) {
       await page.evaluate(() => window.scrollBy(0, 1200));
       await sleep(rand(2000, 3000));
 
-      const found = await page.evaluate((query, sellerSignals) => {
+      const found = await page.evaluate((query, product, devAgencySignals) => {
         const results = {};
         const actionBtns = Array.from(document.querySelectorAll('[aria-label^="Actions for this post by"]'));
 
@@ -125,18 +146,22 @@ async function searchPosts(page, query) {
 
           const text = (container.innerText || '').toLowerCase();
 
-          // Skip sellers hard
-          const isSeller = sellerSignals.some(s => text.includes(s));
-          if (isSeller) return;
+          // For DEVHIRE — block developers and agencies hard
+          if (product === 'DEVHIRE') {
+            const isDev = devAgencySignals.some(s => text.includes(s));
+            if (isDev) return;
 
-          // Must look like a buyer — post should contain question or need language
-          const buyerSignals = [
-            "need", "looking for", "hire", "want", "help me", "how much",
-            "budget", "will pay", "paying", "urgent", "asap", "anyone",
-            "recommend", "suggest", "can someone", "who can", "where can i find"
-          ];
-          const isBuyer = buyerSignals.some(s => text.includes(s));
-          if (!isBuyer) return;
+            // Must look like a buyer
+            const buyerSignals = [
+              "need", "looking for", "hire", "want someone to",
+              "how much", "budget", "will pay", "paying", "urgent",
+              "asap", "anyone know", "recommend", "can someone",
+              "who can", "where can i find", "help me build",
+              "need help with my website", "need help building"
+            ];
+            const isBuyer = buyerSignals.some(s => text.includes(s));
+            if (!isBuyer) return;
+          }
 
           // Score
           let score = 3;
@@ -152,10 +177,14 @@ async function searchPosts(page, query) {
           if (text.includes("project")) score += 2;
           if (text.includes("paid") || text.includes("payment")) score += 2;
           if (text.includes("business")) score += 2;
+          if (product === 'MAPZAP') {
+            if (text.includes("leads")) score += 3;
+            if (text.includes("clients")) score += 3;
+            if (text.includes("customers")) score += 2;
+          }
 
           // Get post permalink
           const allLinks = Array.from(container.querySelectorAll('a[href*="facebook.com"]'));
-
           const postLink = allLinks.find(a =>
             a.href.includes('/posts/') ||
             a.href.includes('/permalink/') ||
@@ -176,7 +205,6 @@ async function searchPosts(page, query) {
           const postUrl = postLink ? postLink.href.split('&__cft__')[0] : null;
           const profileUrl = profileLink ? profileLink.href.split('&__cft__')[0].split('&__tn__')[0] : null;
 
-          // Need at least a post URL to be useful
           if (!postUrl && !profileUrl) return;
 
           if (!results[authorName] || score > results[authorName].score) {
@@ -185,13 +213,14 @@ async function searchPosts(page, query) {
               postUrl: postUrl || '',
               profileUrl: profileUrl || '',
               keyword: query,
-              score
+              score,
+              product
             };
           }
         });
 
         return results;
-      }, query, SELLER_SIGNALS);
+      }, query, product, DEV_AGENCY_SIGNALS);
 
       const count = Object.keys(found).length;
       Object.assign(leads, found);
@@ -208,7 +237,7 @@ async function searchPosts(page, query) {
     }
 
     const sorted = Object.values(leads).sort((a, b) => b.score - a.score);
-    console.log(`Found ${sorted.length} leads for "${query}"`);
+    console.log(`Found ${sorted.length} leads for "${query}" [${product}]`);
     return sorted;
   } catch (err) {
     console.log(`Error searching "${query}": ${err.message}`);
@@ -227,9 +256,9 @@ async function searchPosts(page, query) {
   let totalLeads = 0;
   const allLeads = {};
 
-  for (const query of SEARCH_QUERIES) {
-    const leads = await searchPosts(page, query);
-
+  // Scrape DEVHIRE first — highest priority
+  for (const query of DEVHIRE_QUERIES) {
+    const leads = await searchPosts(page, query, 'DEVHIRE');
     for (const lead of leads) {
       const key = lead.author.toLowerCase();
       if (sent[key]) continue;
@@ -237,7 +266,19 @@ async function searchPosts(page, query) {
       allLeads[key] = lead;
       totalLeads++;
     }
+    await sleep(rand(3000, 5000));
+  }
 
+  // Then MAPZAP
+  for (const query of MAPZAP_QUERIES) {
+    const leads = await searchPosts(page, query, 'MAPZAP');
+    for (const lead of leads) {
+      const key = lead.author.toLowerCase();
+      if (sent[key]) continue;
+      if (allLeads[key]) continue;
+      allLeads[key] = lead;
+      totalLeads++;
+    }
     await sleep(rand(3000, 5000));
   }
 
@@ -251,6 +292,7 @@ async function searchPosts(page, query) {
       profileUrl: l.profileUrl || '',
       keyword: l.keyword,
       score: l.score,
+      product: l.product,
       dmed: 'false'
     })));
   }
