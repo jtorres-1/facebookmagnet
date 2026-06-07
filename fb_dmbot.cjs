@@ -149,7 +149,7 @@ async function sendDM(page, profile, name, keyword, score) {
 
   // Filter out already contacted, sort by score desc
   const unsent = leads
-    .filter(l => !alreadySent(sent, l.author))
+    .filter(l => !alreadySent(sent, l.Author))
     .sort((a, b) => parseInt(b.score || 0) - parseInt(a.score || 0));
 
   console.log(`${unsent.length} uncontacted leads. Starting DMs (max ${MAX_DMS_PER_SESSION} today)...`);
@@ -171,35 +171,35 @@ async function sendDM(page, profile, name, keyword, score) {
       break;
     }
 
-    const key = lead.author.toLowerCase();
+    if (!lead.Author && !lead.Author) continue; const key = (lead.Author || lead.Author).toLowerCase();
 
     // Double-check not already sent (in case file updated mid-run)
-    if (alreadySent(sent, lead.author)) {
-      console.log(`SKIP — already DMed ${lead.author}`);
+    if (alreadySent(sent, lead.Author)) {
+      console.log(`SKIP — already DMed ${lead.Author}`);
       continue;
     }
 
     // Get profile URL
-    let profileUrl = lead.profile && lead.profile.length > 10 ? lead.profile : null;
+    let profileUrl = lead.Profile && lead.Profile.length > 10 ? lead.Profile : null;
     if (!profileUrl) {
-      console.log(`Searching for ${lead.author}...`);
-      profileUrl = await getProfileFromSearch(page, lead.author);
+      console.log(`Searching for ${lead.Author}...`);
+      profileUrl = await getProfileFromSearch(page, lead.Author);
       if (!profileUrl) {
-        console.log(`SKIP — could not find profile for ${lead.author}`);
+        console.log(`SKIP — could not find profile for ${lead.Author}`);
         totalSkipped++;
         continue;
       }
     }
 
-    const result = await sendDM(page, profileUrl, lead.author, lead.keyword, lead.score);
+    const result = await sendDM(page, profileUrl, lead.Author, lead.Keyword, lead.Score);
 
     if (result === 'sent') {
       // Mark as sent immediately to prevent double send
       sent[key] = {
-        name: lead.author,
+        name: lead.Author,
         profile: profileUrl,
-        keyword: lead.keyword,
-        score: lead.score,
+        keyword: lead.Keyword,
+        score: lead.Score,
         sent_at: new Date().toISOString()
       };
       saveSent(sent);
@@ -213,7 +213,7 @@ async function sendDM(page, profile, name, keyword, score) {
       // Still mark skipped profiles to avoid retrying no-button profiles
       if (result === 'no_button') {
         sent[key] = {
-          name: lead.author,
+          name: lead.Author,
           profile: profileUrl,
           skipped: true,
           reason: 'no_message_button',
