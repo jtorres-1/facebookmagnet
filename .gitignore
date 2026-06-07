@@ -1,0 +1,12 @@
+node_modules/
+.env
+session.json
+fb_sent.json
+fb_leads.csv
+runner.log
+found_groups.json
+my_groups.json
+page_debug.json
+selectors.json
+sent_users.json
+*.json
