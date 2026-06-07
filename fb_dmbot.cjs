@@ -7,13 +7,20 @@ const SESSION_PATH = "./session.json";
 const LEADS_PATH = "./fb_leads.csv";
 const SENT_PATH = "./fb_sent.json";
 
-// Safety limits
-const MAX_DMS_PER_SESSION = 100;        // Hard daily cap
-const MIN_DELAY_MS = 30000;            // 55 seconds minimum between DMs
-const MAX_DELAY_MS = 60000;           // 2 minutes maximum
-const PROFILE_LOAD_WAIT = 4000;        // Wait after loading profile
-const POST_CLICK_WAIT = 4000;          // Wait after clicking message button
-const SEARCH_WAIT = 4000;              // Wait after searching for user
+const MAX_DMS_PER_SESSION = 100;
+const MIN_DELAY_MS = 30000;
+const MAX_DELAY_MS = 60000;
+const PROFILE_LOAD_WAIT = 4000;
+const POST_CLICK_WAIT = 4000;
+const SEARCH_WAIT = 4000;
+
+const SELLER_SIGNALS = [
+  "i build", "i develop", "hire me", "my services", "i offer",
+  "available for hire", "for hire", "my portfolio", "i specialize",
+  "check out my", "i am a developer", "i am a web", "i create",
+  "i code", "i design", "my rates", "i do freelance", "i provide",
+  "offering my services", "i am available", "years of experience"
+];
 
 const DM_MESSAGE = `hey! saw your post. i'm a python developer based in LA available immediately. i build websites, scrapers, bots, ai integrations, and automation pipelines. 48 hour delivery, flat fee.
 
@@ -41,7 +48,13 @@ function saveSent(data) {
 }
 
 function alreadySent(sent, author) {
-  if (!author) return true; return !!sent[author.toLowerCase()];
+  if (!author) return true;
+  return !!sent[author.toLowerCase()];
+}
+
+function isSeller(lead) {
+  const text = ((lead.Keyword || '') + ' ' + (lead.Author || '')).toLowerCase();
+  return SELLER_SIGNALS.some(s => text.includes(s));
 }
 
 function loadLeads() {
@@ -72,7 +85,6 @@ async function getProfileFromSearch(page, name) {
       { waitUntil: "networkidle2", timeout: 30000 }
     );
     await sleep(SEARCH_WAIT);
-
     return await page.evaluate(() => {
       const links = Array.from(document.querySelectorAll('a[href*="facebook.com"]'));
       for (const a of links) {
@@ -100,7 +112,7 @@ async function sendDM(page, profile, name, keyword, score) {
     await page.goto(profile, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(PROFILE_LOAD_WAIT + rand(0, 2000));
 
-    // Check for message button — skip cleanly if not found
+    // Find Message button on profile page only
     const msgBtn = await page.$('[aria-label="Message"]') ||
                    await page.$('[aria-label="Send message"]');
 
@@ -112,19 +124,19 @@ async function sendDM(page, profile, name, keyword, score) {
     await msgBtn.click();
     await sleep(POST_CLICK_WAIT + rand(0, 1500));
 
-    // Find message input
-    const msgBox = await page.$('div[role="textbox"]') ||
-                   await page.$('[contenteditable="true"]');
+    // Wait for messenger chat popup specifically — not comment box
+    const msgBox = await page.waitForSelector(
+      'div[data-lexical-editor="true"]',
+      { visible: true, timeout: 8000 }
+    ).catch(() => null);
 
     if (!msgBox) {
-      console.log(`SKIP — no message box for ${name}`);
+      console.log(`SKIP — messenger popup did not open for ${name}`);
       return 'no_box';
     }
 
     await msgBox.click();
     await sleep(rand(800, 1500));
-
-    // Type message humanly
     await page.keyboard.type(DM_MESSAGE, { delay: rand(18, 45) });
     await sleep(rand(800, 1500));
     await page.keyboard.press("Enter");
@@ -147,10 +159,9 @@ async function sendDM(page, profile, name, keyword, score) {
     process.exit(0);
   }
 
-  // Filter out already contacted, sort by score desc
   const unsent = leads
-    .filter(l => !alreadySent(sent, l.Author))
-    .sort((a, b) => parseInt(b.score || 0) - parseInt(a.score || 0));
+    .filter(l => l.Author && !alreadySent(sent, l.Author))
+    .sort((a, b) => parseInt(b.Score || 0) - parseInt(a.Score || 0));
 
   console.log(`${unsent.length} uncontacted leads. Starting DMs (max ${MAX_DMS_PER_SESSION} today)...`);
 
@@ -171,15 +182,20 @@ async function sendDM(page, profile, name, keyword, score) {
       break;
     }
 
-    if (!lead.Author && !lead.Author) continue; const key = (lead.Author || lead.Author).toLowerCase();
+    const key = lead.Author.toLowerCase();
 
-    // Double-check not already sent (in case file updated mid-run)
     if (alreadySent(sent, lead.Author)) {
       console.log(`SKIP — already DMed ${lead.Author}`);
       continue;
     }
 
-    // Get profile URL
+    // Skip sellers
+    if (isSeller(lead)) {
+      console.log(`SKIP — seller detected: ${lead.Author}`);
+      totalSkipped++;
+      continue;
+    }
+
     let profileUrl = lead.Profile && lead.Profile.length > 10 ? lead.Profile : null;
     if (!profileUrl) {
       console.log(`Searching for ${lead.Author}...`);
@@ -194,7 +210,6 @@ async function sendDM(page, profile, name, keyword, score) {
     const result = await sendDM(page, profileUrl, lead.Author, lead.Keyword, lead.Score);
 
     if (result === 'sent') {
-      // Mark as sent immediately to prevent double send
       sent[key] = {
         name: lead.Author,
         profile: profileUrl,
@@ -204,13 +219,10 @@ async function sendDM(page, profile, name, keyword, score) {
       };
       saveSent(sent);
       totalSent++;
-
-      // Human delay between DMs
       const delay = rand(MIN_DELAY_MS, MAX_DELAY_MS);
-      console.log(`Waiting ${Math.round(delay / 1000)}s before next DM... (${totalSent}/${MAX_DMS_PER_SESSION} sent)`);
+      console.log(`Waiting ${Math.round(delay / 1000)}s... (${totalSent}/${MAX_DMS_PER_SESSION} sent)`);
       await sleep(delay);
     } else {
-      // Still mark skipped profiles to avoid retrying no-button profiles
       if (result === 'no_button') {
         sent[key] = {
           name: lead.Author,
