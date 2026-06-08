@@ -11,9 +11,11 @@ const COMMENTED_PATH = "./fb_commented.json";
 const MAX_DMS_PER_SESSION = 100;
 const MIN_DELAY_MS = 30000;
 const MAX_DELAY_MS = 60000;
+const MIN_COMMENT_DELAY_MS = 45000;
+const MAX_COMMENT_DELAY_MS = 90000;
 const PROFILE_LOAD_WAIT = 4000;
 const POST_CLICK_WAIT = 5000;
-const POST_AGE_LIMIT_DAYS = 7;
+const POST_AGE_LIMIT_DAYS = 3;
 
 const SELLER_SIGNALS = [
   "i offer", "i build", "i provide", "my services", "check out my",
@@ -149,7 +151,19 @@ async function commentOnPost(page, postUrl, commentText, authorName) {
     await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(rand(3000, 5000));
 
-    // Find and click comment box
+    // Check if comments are disabled
+    const pageText = await page.evaluate(() => document.body.innerText.toLowerCase());
+    if (
+      pageText.includes("comments are turned off") ||
+      pageText.includes("comments are disabled") ||
+      pageText.includes("turned off commenting") ||
+      pageText.includes("comments have been turned off")
+    ) {
+      console.log(`SKIP COMMENT — comments disabled for post by ${authorName}`);
+      return false;
+    }
+
+    // Find comment box
     const commentBox = await page.waitForSelector(
       'div[aria-placeholder^="Comment as"][data-lexical-editor="true"], div[aria-placeholder^="Write a comment"][data-lexical-editor="true"], div[aria-placeholder^="Answer as"][data-lexical-editor="true"]',
       { visible: true, timeout: 8000 }
@@ -168,6 +182,12 @@ async function commentOnPost(page, postUrl, commentText, authorName) {
     await sleep(rand(2000, 3000));
 
     console.log(`COMMENTED → ${authorName} | ${commentText.substring(0, 50)}...`);
+
+    // Human delay after commenting to avoid flags
+    const commentDelay = rand(MIN_COMMENT_DELAY_MS, MAX_COMMENT_DELAY_MS);
+    console.log(`Waiting ${Math.round(commentDelay / 1000)}s after comment...`);
+    await sleep(commentDelay);
+
     return true;
   } catch (err) {
     console.log(`ERROR — comment failed for ${authorName}: ${err.message}`);
@@ -274,7 +294,6 @@ async function sendDM(page, profileUrl, name, message) {
     const message = product === 'MAPZAP' ? pick(MAPZAP_MESSAGES) : DEVHIRE_DM;
     const commentText = product === 'MAPZAP' ? MAPZAP_COMMENT : DEVHIRE_COMMENT;
 
-    // Get profile URL from post first, fallback to scraped profile
     let profileUrl = null;
 
     if (lead.PostURL && lead.PostURL.length > 10) {
@@ -287,7 +306,6 @@ async function sendDM(page, profileUrl, name, message) {
     }
 
     if (!profileUrl) {
-      // Try to comment on post as fallback if post is fresh
       if (lead.PostURL && lead.PostURL.length > 10 && isPostFresh(lead) && !commented[key]) {
         console.log(`No profile found — trying comment fallback for ${lead.Author} [${product}]`);
         const commentSuccess = await commentOnPost(page, lead.PostURL, commentText, lead.Author);
@@ -328,7 +346,6 @@ async function sendDM(page, profileUrl, name, message) {
       console.log(`Waiting ${Math.round(delay / 1000)}s... (${totalSent}/${MAX_DMS_PER_SESSION} sent) [${product}]`);
       await sleep(delay);
     } else {
-      // DM failed — try comment fallback if post is fresh
       if (lead.PostURL && lead.PostURL.length > 10 && isPostFresh(lead) && !commented[key]) {
         console.log(`DM failed — trying comment fallback for ${lead.Author} [${product}]`);
         const commentSuccess = await commentOnPost(page, lead.PostURL, commentText, lead.Author);
