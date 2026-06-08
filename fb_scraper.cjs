@@ -10,42 +10,54 @@ const SENT_PATH = "./fb_sent.json";
 const MAX_POST_AGE_DAYS = 3;
 
 const DEVHIRE_QUERIES = [
-  "need a website for my business",
-  "need someone to build my website",
-  "need a website built for my",
-  "looking to hire a developer",
-  "need to hire a developer",
-  "need an app built for my business",
-  "need a developer for my project",
-  "need a freelancer to build my",
-  "will pay for website",
-  "will pay for developer",
-  "budget for website",
-  "budget for developer",
-  "need a web developer urgently",
-  "need a developer asap",
-  "need someone to build my app",
-  "need a chatbot for my business",
-  "need automation for my business",
-  "need a bot built for my business",
-  "need a scraper for my business",
-  "need ai integration for my business",
+  "I need a website for my business",
+  "I need someone to build my website",
+  "I need a website built",
+  "I'm looking for a developer",
+  "I am looking for a developer",
+  "I need to hire a developer",
+  "I'm hiring a developer",
+  "I need an app built for my business",
+  "I need a developer for my project",
+  "I need a freelancer to build",
+  "I will pay for a website",
+  "I have a budget for a website",
+  "I have a budget for a developer",
+  "I need a web developer urgently",
+  "I need a developer asap",
+  "I need someone to build my app",
+  "I need a chatbot for my business",
+  "I need automation for my business",
+  "I need a bot built",
+  "I need a scraper built",
+  "I need AI integration for my business",
+  "I need a landing page built",
+  "I need a shopify store built",
+  "I need a wordpress site built",
+  "I need a mobile app built",
+  "I need coding help for my business",
+  "I need a python developer",
+  "I need a full stack developer",
+  "I'm looking to hire a freelancer",
+  "I need tech help for my business",
 ];
 
 const MAPZAP_QUERIES = [
-  "need leads for my business",
-  "need more clients for my business",
-  "need local business leads",
-  "need a lead list",
-  "where to find leads",
-  "struggling to find clients",
-  "need more customers for my business",
-  "need business leads",
-  "how do i find leads for my business",
+  "I need leads for my business",
+  "I need more clients for my business",
+  "I need local business leads",
+  "I need a lead list",
+  "how do I find leads for my business",
+  "I'm struggling to find clients",
+  "I need more customers for my business",
+  "I need business leads",
+  "how do I get more clients",
+  "I need to find more customers",
+  "I need prospects for my business",
+  "I need to generate leads",
 ];
 
 const DEV_AGENCY_SIGNALS = [
-  // Direct seller signals
   "i offer", "i build", "i provide", "my services", "check out my",
   "i am a developer", "i am a web developer", "i specialize in",
   "hire me", "my portfolio", "i can build", "i develop", "i create",
@@ -62,7 +74,6 @@ const DEV_AGENCY_SIGNALS = [
   "agency owner", "software company", "tech company", "it company",
   "web studio", "design studio", "development studio",
   "we are a", "our company", "founded in", "est.", "established",
-  // Seller pitch patterns
   "does your business need",
   "does your company need",
   "does your brand need",
@@ -121,7 +132,6 @@ const DEV_AGENCY_SIGNALS = [
   "currently available",
   "slots available",
   "spots available",
-  // Business page signals
   "we build websites",
   "we create",
   "we design",
@@ -273,17 +283,19 @@ async function searchPosts(page, query, product) {
           const isDev = devAgencySignals.some(s => text.includes(s));
           if (isDev) return;
 
-          // For DEVHIRE must look like a buyer
-          if (product === 'DEVHIRE') {
-            const buyerSignals = [
-              "need", "looking to hire", "want someone to",
-              "how much", "budget", "will pay", "paying", "urgent",
-              "asap", "can someone", "who can", "where can i find",
-              "help me build", "need help with my website",
-            ];
-            const isBuyer = buyerSignals.some(s => text.includes(s));
-            if (!isBuyer) return;
-          }
+          // Must contain first person buyer language
+          const firstPersonBuyerSignals = [
+            "i need", "i'm looking", "i am looking", "i want",
+            "i have a budget", "i will pay", "i need to hire",
+            "i'm hiring", "i am hiring", "i need help with",
+            "i need someone to", "i'm searching", "i am searching",
+            "i need a developer", "i need a website", "i need an app",
+            "how do i", "how can i", "i need more clients",
+            "i need leads", "i need customers", "i need prospects",
+            "i need to find", "i need to generate",
+          ];
+          const isFirstPerson = firstPersonBuyerSignals.some(s => text.includes(s));
+          if (!isFirstPerson) return;
 
           // Score
           let score = 3;
