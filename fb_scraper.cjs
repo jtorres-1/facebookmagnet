@@ -12,53 +12,36 @@ const MAX_POST_AGE_DAYS = 3;
 const DEVHIRE_QUERIES = [
   "need a website for my business",
   "need someone to build my website",
-  "looking for someone to build my website",
   "need a website built for my",
-  "how much does a website cost",
-  "need a landing page built",
-  "need an ecommerce website built",
-  "need a shopify store built",
-  "need a wordpress site built",
-  "need a mobile app built for my",
+  "looking to hire a developer",
+  "need to hire a developer",
   "need an app built for my business",
-  "looking to hire a developer for my",
-  "need to hire a developer for",
-  "need someone to build an app",
-  "need a chatbot for my business",
-  "need automation for my business",
-  "need a bot built for my",
-  "need api integration for my",
-  "need someone to automate my",
-  "need workflow automation for",
+  "need a developer for my project",
+  "need a freelancer to build my",
   "will pay for website",
   "will pay for developer",
-  "paying for website development",
   "budget for website",
   "budget for developer",
-  "need a developer asap",
   "need a web developer urgently",
-  "need a freelancer to build my",
-  "need tech help for my business",
-  "need a python script for my",
-  "need a custom website",
+  "need a developer asap",
+  "need someone to build my app",
+  "need a chatbot for my business",
+  "need automation for my business",
+  "need a bot built for my business",
+  "need a scraper for my business",
+  "need ai integration for my business",
 ];
 
 const MAPZAP_QUERIES = [
   "need leads for my business",
-  "looking for business leads",
-  "how to find more customers",
   "need more clients for my business",
-  "where to find leads",
-  "need a lead list",
   "need local business leads",
-  "how to get more customers for my",
-  "need more sales leads",
-  "cold outreach help",
-  "need to find prospects",
-  "looking for potential clients",
-  "how do I find new clients",
-  "need customer leads",
+  "need a lead list",
+  "where to find leads",
   "struggling to find clients",
+  "need more customers for my business",
+  "need business leads",
+  "how do i find leads for my business",
 ];
 
 const DEV_AGENCY_SIGNALS = [
@@ -90,7 +73,6 @@ const DEV_AGENCY_SIGNALS = [
   "do you need a website",
   "do you need a developer",
   "do you need help with",
-  "do you need a",
   "looking for businesses",
   "i help businesses",
   "i help companies",
@@ -139,7 +121,7 @@ const DEV_AGENCY_SIGNALS = [
   "currently available",
   "slots available",
   "spots available",
-  // Business page / agency signals
+  // Business page signals
   "we build websites",
   "we create",
   "we design",
@@ -294,11 +276,10 @@ async function searchPosts(page, query, product) {
           // For DEVHIRE must look like a buyer
           if (product === 'DEVHIRE') {
             const buyerSignals = [
-              "need", "looking for", "hire", "want someone to",
+              "need", "looking to hire", "want someone to",
               "how much", "budget", "will pay", "paying", "urgent",
-              "asap", "anyone know", "recommend", "can someone",
-              "who can", "where can i find", "help me build",
-              "need help with my website", "need help building"
+              "asap", "can someone", "who can", "where can i find",
+              "help me build", "need help with my website",
             ];
             const isBuyer = buyerSignals.some(s => text.includes(s));
             if (!isBuyer) return;
