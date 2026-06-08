@@ -27,6 +27,13 @@ const SELLER_SIGNALS = [
   "i am a freelancer", "looking for clients", "seeking clients",
   "looking for projects", "open to projects", "taking on projects",
   "upwork", "fiverr", "toptal",
+  "we boost", "we grow", "we help your", "we help you",
+  "we build websites", "we create", "we design", "we deliver",
+  "business consultant", "business coach", "marketing consultant",
+  "digital marketing", "social media manager", "seo specialist",
+  "book a call", "book a free", "book now", "schedule a call",
+  "strategy call", "discovery call", "follow us", "follow our page",
+  "proven results", "results driven", "satisfaction guaranteed",
 ];
 
 const DEVHIRE_DM = `hey! saw your post. i'm a python developer based in LA available immediately. i build websites, scrapers, bots, ai integrations, and automation pipelines. 48 hour delivery, flat fee.
@@ -117,6 +124,19 @@ async function loadSession(page) {
   console.log("Session loaded.");
 }
 
+async function isBusinessPage(page) {
+  try {
+    return await page.evaluate(() => {
+      const likeBtn = document.querySelector('[aria-label="Like"][role="button"]');
+      const followBtn = document.querySelector('[aria-label="Follow"][role="button"]');
+      const bookBtn = document.querySelector('[aria-label="Book Now"]');
+      return !!(likeBtn || followBtn || bookBtn);
+    });
+  } catch {
+    return false;
+  }
+}
+
 async function getProfileFromPost(page, postUrl, authorName) {
   try {
     await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 30000 });
@@ -151,7 +171,6 @@ async function commentOnPost(page, postUrl, commentText, authorName) {
     await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(rand(3000, 5000));
 
-    // Check if comments are disabled
     const pageText = await page.evaluate(() => document.body.innerText.toLowerCase());
     if (
       pageText.includes("comments are turned off") ||
@@ -163,7 +182,6 @@ async function commentOnPost(page, postUrl, commentText, authorName) {
       return false;
     }
 
-    // Find comment box
     const commentBox = await page.waitForSelector(
       'div[aria-placeholder^="Comment as"][data-lexical-editor="true"], div[aria-placeholder^="Write a comment"][data-lexical-editor="true"], div[aria-placeholder^="Answer as"][data-lexical-editor="true"]',
       { visible: true, timeout: 8000 }
@@ -183,7 +201,6 @@ async function commentOnPost(page, postUrl, commentText, authorName) {
 
     console.log(`COMMENTED → ${authorName} | ${commentText.substring(0, 50)}...`);
 
-    // Human delay after commenting to avoid flags
     const commentDelay = rand(MIN_COMMENT_DELAY_MS, MAX_COMMENT_DELAY_MS);
     console.log(`Waiting ${Math.round(commentDelay / 1000)}s after comment...`);
     await sleep(commentDelay);
@@ -199,6 +216,13 @@ async function sendDM(page, profileUrl, name, message) {
   try {
     await page.goto(profileUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(PROFILE_LOAD_WAIT + rand(0, 2000));
+
+    // Skip business pages
+    const isPage = await isBusinessPage(page);
+    if (isPage) {
+      console.log(`SKIP — business page: ${name}`);
+      return 'business_page';
+    }
 
     const msgBtn = await page.$('[aria-label="Message"]') ||
                    await page.$('[aria-label="Send message"]');
@@ -228,6 +252,17 @@ async function sendDM(page, profileUrl, name, message) {
     await sleep(rand(800, 1500));
     await page.keyboard.press("Enter");
     await sleep(rand(1500, 3000));
+
+    // Verify message sent — input box should be empty
+    const inputEmpty = await page.evaluate(() => {
+      const box = document.querySelector('div[data-lexical-editor="true"][aria-label^="Write to"], div[data-lexical-editor="true"][aria-label^="Message"]');
+      return box ? box.innerText.trim() === '' : true;
+    });
+
+    if (!inputEmpty) {
+      console.log(`ERROR — message may not have sent for ${name}`);
+      return 'error';
+    }
 
     console.log(`SENT → ${name}`);
     return 'sent';
@@ -346,6 +381,14 @@ async function sendDM(page, profileUrl, name, message) {
       console.log(`Waiting ${Math.round(delay / 1000)}s... (${totalSent}/${MAX_DMS_PER_SESSION} sent) [${product}]`);
       await sleep(delay);
     } else {
+      if (result === 'business_page') {
+        sent[key] = { name: lead.Author, skipped: true, reason: 'business_page', sent_at: new Date().toISOString() };
+        saveSent(sent);
+        totalSkipped++;
+        await sleep(rand(2000, 4000));
+        continue;
+      }
+
       if (lead.PostURL && lead.PostURL.length > 10 && isPostFresh(lead) && !commented[key]) {
         console.log(`DM failed — trying comment fallback for ${lead.Author} [${product}]`);
         const commentSuccess = await commentOnPost(page, lead.PostURL, commentText, lead.Author);
