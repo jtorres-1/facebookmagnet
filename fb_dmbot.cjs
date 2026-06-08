@@ -6,14 +6,28 @@ const fs = require("fs");
 const SESSION_PATH = "./session.json";
 const LEADS_PATH = "./fb_leads.csv";
 const SENT_PATH = "./fb_sent.json";
+const COMMENTED_PATH = "./fb_commented.json";
 
 const MAX_DMS_PER_SESSION = 100;
 const MIN_DELAY_MS = 30000;
 const MAX_DELAY_MS = 60000;
 const PROFILE_LOAD_WAIT = 4000;
 const POST_CLICK_WAIT = 5000;
+const POST_AGE_LIMIT_DAYS = 7;
 
-const DEVHIRE_MESSAGE = `hey! saw your post. i'm a python developer based in LA available immediately. i build websites, scrapers, bots, ai integrations, and automation pipelines. 48 hour delivery, flat fee.
+const SELLER_SIGNALS = [
+  "i offer", "i build", "i provide", "my services", "check out my",
+  "i am a developer", "i am a web developer", "i specialize in",
+  "hire me", "my portfolio", "i can build", "i develop", "i create",
+  "i code", "i design websites", "years of experience",
+  "available for hire", "for hire", "i do freelance",
+  "offering my services", "i am a programmer", "i am a coder",
+  "i am a freelancer", "looking for clients", "seeking clients",
+  "looking for projects", "open to projects", "taking on projects",
+  "upwork", "fiverr", "toptal",
+];
+
+const DEVHIRE_DM = `hey! saw your post. i'm a python developer based in LA available immediately. i build websites, scrapers, bots, ai integrations, and automation pipelines. 48 hour delivery, flat fee.
 
 recent work:
 restaurant site: https://casa-fuego-demo.netlify.app
@@ -27,10 +41,14 @@ github: https://github.com/jtorres-1
 dm me a scope.`;
 
 const MAPZAP_MESSAGES = [
-  `saw your post — thought this might help. i built a tool that pulls 100 local business leads as a CSV in about 60 seconds. type a business type and city, get names, phone numbers, and addresses instantly. $49 one time, no subscription. https://mapzap.org`,
-  `random but saw your post and thought of this — i built mapzap, pulls 100 local business leads in 60 seconds. name, phone, address, CSV download. one time $49, no monthly fee. https://mapzap.org`,
-  `this might save you some time — built a tool that scrapes 100 local businesses in 60 seconds. type a niche and city, download a CSV with names, phones, addresses. $49 once. https://mapzap.org`,
+  `saw your post. i built a tool that pulls 100 local business leads as a CSV in about 60 seconds. type a business type and city, get names, phone numbers, and addresses instantly. $49 one time, no subscription. https://mapzap.org`,
+  `i built mapzap, pulls 100 local business leads in 60 seconds. name, phone, address, CSV download. one time $49, no monthly fee. https://mapzap.org`,
+  `built a tool that scrapes 100 local businesses in 60 seconds. type a niche and city, download a CSV with names, phones, addresses. $49 once. https://mapzap.org`,
 ];
+
+const DEVHIRE_COMMENT = `python developer in LA available immediately. i build websites, scrapers, bots and automation. 48 hour delivery flat fee. dm me a scope`;
+
+const MAPZAP_COMMENT = `i built a tool that pulls 100 local business leads as a CSV in 60 seconds. any niche any city. dm me if you want to check it out`;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -45,9 +63,35 @@ function saveSent(data) {
   fs.writeFileSync(SENT_PATH, JSON.stringify(data, null, 2));
 }
 
+function loadCommented() {
+  if (!fs.existsSync(COMMENTED_PATH)) return {};
+  try { return JSON.parse(fs.readFileSync(COMMENTED_PATH)); } catch { return {}; }
+}
+
+function saveCommented(data) {
+  fs.writeFileSync(COMMENTED_PATH, JSON.stringify(data, null, 2));
+}
+
 function alreadySent(sent, author) {
   if (!author) return true;
   return !!sent[author.toLowerCase()];
+}
+
+function isSeller(lead) {
+  const text = ((lead.Keyword || '') + ' ' + (lead.Author || '')).toLowerCase();
+  return SELLER_SIGNALS.some(s => text.includes(s));
+}
+
+function isPostFresh(lead) {
+  if (!lead.Time) return true;
+  try {
+    const postTime = new Date(lead.Time);
+    const ageMs = Date.now() - postTime.getTime();
+    const ageDays = ageMs / (1000 * 60 * 60 * 24);
+    return ageDays <= POST_AGE_LIMIT_DAYS;
+  } catch {
+    return true;
+  }
 }
 
 function loadLeads() {
@@ -100,6 +144,37 @@ async function getProfileFromPost(page, postUrl, authorName) {
   }
 }
 
+async function commentOnPost(page, postUrl, commentText, authorName) {
+  try {
+    await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 30000 });
+    await sleep(rand(3000, 5000));
+
+    // Find and click comment box
+    const commentBox = await page.waitForSelector(
+      '[aria-label="Write a comment…"], [aria-label="Write a public comment…"], [aria-placeholder="Write a comment…"]',
+      { visible: true, timeout: 8000 }
+    ).catch(() => null);
+
+    if (!commentBox) {
+      console.log(`SKIP COMMENT — no comment box for post by ${authorName}`);
+      return false;
+    }
+
+    await commentBox.click();
+    await sleep(rand(1000, 2000));
+    await page.keyboard.type(commentText, { delay: rand(18, 45) });
+    await sleep(rand(800, 1500));
+    await page.keyboard.press("Enter");
+    await sleep(rand(2000, 3000));
+
+    console.log(`COMMENTED → ${authorName} | ${commentText.substring(0, 50)}...`);
+    return true;
+  } catch (err) {
+    console.log(`ERROR — comment failed for ${authorName}: ${err.message}`);
+    return false;
+  }
+}
+
 async function sendDM(page, profileUrl, name, message) {
   try {
     await page.goto(profileUrl, { waitUntil: "networkidle2", timeout: 30000 });
@@ -115,7 +190,6 @@ async function sendDM(page, profileUrl, name, message) {
 
     await msgBtn.click();
     await sleep(POST_CLICK_WAIT + rand(0, 1500));
-
     await sleep(rand(2000, 3000));
 
     const msgBox = await page.waitForSelector(
@@ -145,6 +219,7 @@ async function sendDM(page, profileUrl, name, message) {
 
 (async () => {
   const sent = loadSent();
+  const commented = loadCommented();
   const leads = await loadLeads();
 
   if (!leads.length) {
@@ -158,7 +233,11 @@ async function sendDM(page, profileUrl, name, message) {
 
   console.log(`${unsent.length} uncontacted leads. Starting DMs (max ${MAX_DMS_PER_SESSION} today)...`);
 
-  const browser = await puppeteer.launch({ headless: false, defaultViewport: null, protocolTimeout: 60000 });
+  const browser = await puppeteer.launch({
+    headless: false,
+    defaultViewport: null,
+    protocolTimeout: 60000
+  });
   const page = await browser.newPage();
   await page.setUserAgent(
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -167,6 +246,7 @@ async function sendDM(page, profileUrl, name, message) {
   await loadSession(page);
 
   let totalSent = 0;
+  let totalCommented = 0;
   let totalSkipped = 0;
 
   for (const lead of unsent) {
@@ -176,15 +256,23 @@ async function sendDM(page, profileUrl, name, message) {
     }
 
     const key = lead.Author.toLowerCase();
+    const product = (lead.Product || 'DEVHIRE').toUpperCase();
 
     if (alreadySent(sent, lead.Author)) {
       console.log(`SKIP — already DMed ${lead.Author}`);
       continue;
     }
 
-    // Pick message based on product
-    const product = (lead.Product || 'DEVHIRE').toUpperCase();
-    const message = product === 'MAPZAP' ? pick(MAPZAP_MESSAGES) : DEVHIRE_MESSAGE;
+    if (isSeller(lead)) {
+      console.log(`SKIP — seller detected: ${lead.Author}`);
+      sent[key] = { name: lead.Author, skipped: true, reason: 'seller', sent_at: new Date().toISOString() };
+      saveSent(sent);
+      totalSkipped++;
+      continue;
+    }
+
+    const message = product === 'MAPZAP' ? pick(MAPZAP_MESSAGES) : DEVHIRE_DM;
+    const commentText = product === 'MAPZAP' ? MAPZAP_COMMENT : DEVHIRE_COMMENT;
 
     // Get profile URL from post first, fallback to scraped profile
     let profileUrl = null;
@@ -199,8 +287,27 @@ async function sendDM(page, profileUrl, name, message) {
     }
 
     if (!profileUrl) {
-      console.log(`SKIP — could not find profile for ${lead.Author}`);
-      totalSkipped++;
+      // Try to comment on post as fallback if post is fresh
+      if (lead.PostURL && lead.PostURL.length > 10 && isPostFresh(lead) && !commented[key]) {
+        console.log(`No profile found — trying comment fallback for ${lead.Author} [${product}]`);
+        const commentSuccess = await commentOnPost(page, lead.PostURL, commentText, lead.Author);
+        if (commentSuccess) {
+          commented[key] = {
+            name: lead.Author,
+            postUrl: lead.PostURL,
+            product,
+            commented_at: new Date().toISOString()
+          };
+          saveCommented(commented);
+          totalCommented++;
+        }
+        sent[key] = { name: lead.Author, skipped: true, reason: 'no_profile_commented', sent_at: new Date().toISOString() };
+        saveSent(sent);
+      } else {
+        console.log(`SKIP — could not find profile for ${lead.Author}`);
+        totalSkipped++;
+      }
+      await sleep(rand(3000, 6000));
       continue;
     }
 
@@ -211,7 +318,7 @@ async function sendDM(page, profileUrl, name, message) {
         name: lead.Author,
         profile: profileUrl,
         keyword: lead.Keyword,
-        product: product,
+        product,
         score: lead.Score,
         sent_at: new Date().toISOString()
       };
@@ -221,12 +328,28 @@ async function sendDM(page, profileUrl, name, message) {
       console.log(`Waiting ${Math.round(delay / 1000)}s... (${totalSent}/${MAX_DMS_PER_SESSION} sent) [${product}]`);
       await sleep(delay);
     } else {
-      if (result === 'no_button') {
+      // DM failed — try comment fallback if post is fresh
+      if (lead.PostURL && lead.PostURL.length > 10 && isPostFresh(lead) && !commented[key]) {
+        console.log(`DM failed — trying comment fallback for ${lead.Author} [${product}]`);
+        const commentSuccess = await commentOnPost(page, lead.PostURL, commentText, lead.Author);
+        if (commentSuccess) {
+          commented[key] = {
+            name: lead.Author,
+            postUrl: lead.PostURL,
+            product,
+            commented_at: new Date().toISOString()
+          };
+          saveCommented(commented);
+          totalCommented++;
+        }
+      }
+
+      if (result === 'no_button' || result === 'no_box') {
         sent[key] = {
           name: lead.Author,
           profile: profileUrl,
           skipped: true,
-          reason: 'no_message_button',
+          reason: result,
           sent_at: new Date().toISOString()
         };
         saveSent(sent);
@@ -236,6 +359,6 @@ async function sendDM(page, profileUrl, name, message) {
     }
   }
 
-  console.log(`\nDone. ${totalSent} DMs sent. ${totalSkipped} skipped.`);
+  console.log(`\nDone. ${totalSent} DMs sent. ${totalCommented} comments posted. ${totalSkipped} skipped.`);
   await browser.close();
 })();
