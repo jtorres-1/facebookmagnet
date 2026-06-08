@@ -61,7 +61,9 @@ const MAPZAP_QUERIES = [
   "struggling to find clients",
 ];
 
+// Block developers, agencies, and seller pitch patterns
 const DEV_AGENCY_SIGNALS = [
+  // Direct seller signals
   "i offer", "i build", "i provide", "my services", "check out my",
   "i am a developer", "i am a web developer", "i specialize in",
   "hire me", "my portfolio", "i can build", "i develop", "i create",
@@ -78,6 +80,57 @@ const DEV_AGENCY_SIGNALS = [
   "agency owner", "software company", "tech company", "it company",
   "web studio", "design studio", "development studio",
   "we are a", "our company", "founded in", "est.", "established",
+  // Seller pitch patterns — they ask YOU if you need something
+  "does your business need",
+  "does your company need",
+  "does your brand need",
+  "is your website",
+  "is your business",
+  "are you looking for a developer",
+  "are you in need of",
+  "do you need a website",
+  "do you need a developer",
+  "do you need help with",
+  "do you need a",
+  "looking for businesses",
+  "i help businesses",
+  "i help companies",
+  "i help small business",
+  "we help businesses",
+  "we help companies",
+  "we help small",
+  "transform your business",
+  "grow your business",
+  "boost your",
+  "take your business",
+  "elevate your",
+  "scale your business with",
+  "get your business",
+  "get a website for",
+  "affordable websites",
+  "professional websites",
+  "custom websites starting",
+  "websites starting at",
+  "starting from",
+  "get in touch",
+  "contact us today",
+  "dm us",
+  "message us",
+  "link in bio",
+  "check our portfolio",
+  "visit our website",
+  "free consultation",
+  "free quote",
+  "limited slots",
+  "limited spots",
+  "taking on new clients",
+  "accepting new clients",
+  "now accepting",
+  "open for work",
+  "open to work",
+  "currently available",
+  "slots available",
+  "spots available",
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -149,16 +202,13 @@ async function searchPosts(page, query, product) {
           const text = (container.innerText || '').toLowerCase();
 
           // Extract post timestamp and check age
-          const timeEl = container.querySelector('a[href*="/posts/"] abbr, abbr[data-utime], a[role="link"] span[id]');
           let postTimestamp = null;
 
-          // Try to get timestamp from abbr data-utime
           const abbrEl = container.querySelector('abbr[data-utime]');
           if (abbrEl) {
             postTimestamp = parseInt(abbrEl.getAttribute('data-utime')) * 1000;
           }
 
-          // Try to parse from relative time text
           if (!postTimestamp) {
             const timeTexts = container.innerText.match(/(\d+)\s*(minute|hour|min|hr|second|sec)s?\s*ago/i);
             if (timeTexts) {
@@ -172,7 +222,6 @@ async function searchPosts(page, query, product) {
             }
           }
 
-          // Try to parse "X days ago"
           if (!postTimestamp) {
             const dayMatch = container.innerText.match(/(\d+)\s*days?\s*ago/i);
             if (dayMatch) {
@@ -180,22 +229,21 @@ async function searchPosts(page, query, product) {
             }
           }
 
-          // Try to parse "Yesterday"
           if (!postTimestamp && container.innerText.toLowerCase().includes('yesterday')) {
             postTimestamp = now - 24 * 60 * 60 * 1000;
           }
 
-          // If we found a timestamp, check age
           if (postTimestamp) {
             const ageMs = now - postTimestamp;
-            if (ageMs > maxAgeMs) return; // Too old — skip
+            if (ageMs > maxAgeMs) return;
           }
 
-          // For DEVHIRE — block developers and agencies
-          if (product === 'DEVHIRE') {
-            const isDev = devAgencySignals.some(s => text.includes(s));
-            if (isDev) return;
+          // Block developers, agencies, and seller pitches
+          const isDev = devAgencySignals.some(s => text.includes(s));
+          if (isDev) return;
 
+          // For DEVHIRE — must look like a buyer
+          if (product === 'DEVHIRE') {
             const buyerSignals = [
               "need", "looking for", "hire", "want someone to",
               "how much", "budget", "will pay", "paying", "urgent",
@@ -227,7 +275,7 @@ async function searchPosts(page, query, product) {
             if (text.includes("customers")) score += 2;
           }
 
-          // Boost score for very fresh posts
+          // Boost score for fresh posts
           if (postTimestamp) {
             const ageHours = (now - postTimestamp) / (60 * 60 * 1000);
             if (ageHours < 6) score += 5;
@@ -331,7 +379,6 @@ async function searchPosts(page, query, product) {
     await sleep(rand(3000, 5000));
   }
 
-  // Sort by score descending — freshest highest scored leads first
   const sorted = Object.values(allLeads).sort((a, b) => b.score - a.score);
 
   if (sorted.length > 0) {
