@@ -7,7 +7,8 @@ const SESSION_PATH = "./session.json";
 const LEADS_PATH = "./fb_leads.csv";
 const SENT_PATH = "./fb_sent.json";
 
-// DEVHIRE — people who NEED a developer built something. NO developers.
+const MAX_POST_AGE_DAYS = 3;
+
 const DEVHIRE_QUERIES = [
   "need a website for my business",
   "need someone to build my website",
@@ -42,7 +43,6 @@ const DEVHIRE_QUERIES = [
   "need a custom website",
 ];
 
-// MAPZAP — business owners who need leads
 const MAPZAP_QUERIES = [
   "need leads for my business",
   "looking for business leads",
@@ -61,7 +61,6 @@ const MAPZAP_QUERIES = [
   "struggling to find clients",
 ];
 
-// Block developers and software agencies from DEVHIRE leads
 const DEV_AGENCY_SIGNALS = [
   "i offer", "i build", "i provide", "my services", "check out my",
   "i am a developer", "i am a web developer", "i specialize in",
@@ -128,8 +127,11 @@ async function searchPosts(page, query, product) {
       await page.evaluate(() => window.scrollBy(0, 1200));
       await sleep(rand(2000, 3000));
 
-      const found = await page.evaluate((query, product, devAgencySignals) => {
+      const found = await page.evaluate((query, product, devAgencySignals, maxAgeDays) => {
         const results = {};
+        const now = Date.now();
+        const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+
         const actionBtns = Array.from(document.querySelectorAll('[aria-label^="Actions for this post by"]'));
 
         actionBtns.forEach(btn => {
@@ -146,12 +148,54 @@ async function searchPosts(page, query, product) {
 
           const text = (container.innerText || '').toLowerCase();
 
-          // For DEVHIRE — block developers and agencies hard
+          // Extract post timestamp and check age
+          const timeEl = container.querySelector('a[href*="/posts/"] abbr, abbr[data-utime], a[role="link"] span[id]');
+          let postTimestamp = null;
+
+          // Try to get timestamp from abbr data-utime
+          const abbrEl = container.querySelector('abbr[data-utime]');
+          if (abbrEl) {
+            postTimestamp = parseInt(abbrEl.getAttribute('data-utime')) * 1000;
+          }
+
+          // Try to parse from relative time text
+          if (!postTimestamp) {
+            const timeTexts = container.innerText.match(/(\d+)\s*(minute|hour|min|hr|second|sec)s?\s*ago/i);
+            if (timeTexts) {
+              const num = parseInt(timeTexts[1]);
+              const unit = timeTexts[2].toLowerCase();
+              let ms = 0;
+              if (unit.startsWith('sec')) ms = num * 1000;
+              else if (unit.startsWith('min')) ms = num * 60 * 1000;
+              else if (unit.startsWith('hour') || unit.startsWith('hr')) ms = num * 60 * 60 * 1000;
+              postTimestamp = now - ms;
+            }
+          }
+
+          // Try to parse "X days ago"
+          if (!postTimestamp) {
+            const dayMatch = container.innerText.match(/(\d+)\s*days?\s*ago/i);
+            if (dayMatch) {
+              postTimestamp = now - parseInt(dayMatch[1]) * 24 * 60 * 60 * 1000;
+            }
+          }
+
+          // Try to parse "Yesterday"
+          if (!postTimestamp && container.innerText.toLowerCase().includes('yesterday')) {
+            postTimestamp = now - 24 * 60 * 60 * 1000;
+          }
+
+          // If we found a timestamp, check age
+          if (postTimestamp) {
+            const ageMs = now - postTimestamp;
+            if (ageMs > maxAgeMs) return; // Too old — skip
+          }
+
+          // For DEVHIRE — block developers and agencies
           if (product === 'DEVHIRE') {
             const isDev = devAgencySignals.some(s => text.includes(s));
             if (isDev) return;
 
-            // Must look like a buyer
             const buyerSignals = [
               "need", "looking for", "hire", "want someone to",
               "how much", "budget", "will pay", "paying", "urgent",
@@ -183,7 +227,14 @@ async function searchPosts(page, query, product) {
             if (text.includes("customers")) score += 2;
           }
 
-          // Get post permalink
+          // Boost score for very fresh posts
+          if (postTimestamp) {
+            const ageHours = (now - postTimestamp) / (60 * 60 * 1000);
+            if (ageHours < 6) score += 5;
+            else if (ageHours < 24) score += 3;
+            else if (ageHours < 48) score += 1;
+          }
+
           const allLinks = Array.from(container.querySelectorAll('a[href*="facebook.com"]'));
           const postLink = allLinks.find(a =>
             a.href.includes('/posts/') ||
@@ -191,7 +242,6 @@ async function searchPosts(page, query, product) {
             a.href.includes('story_fbid')
           );
 
-          // Get profile link
           const profileLink = allLinks.find(a => {
             const href = a.href.split('?')[0];
             return (href.match(/facebook\.com\/[a-zA-Z0-9._]{3,}$/) ||
@@ -214,13 +264,14 @@ async function searchPosts(page, query, product) {
               profileUrl: profileUrl || '',
               keyword: query,
               score,
-              product
+              product,
+              postTimestamp: postTimestamp || null
             };
           }
         });
 
         return results;
-      }, query, product, DEV_AGENCY_SIGNALS);
+      }, query, product, DEV_AGENCY_SIGNALS, MAX_POST_AGE_DAYS);
 
       const count = Object.keys(found).length;
       Object.assign(leads, found);
@@ -256,7 +307,6 @@ async function searchPosts(page, query, product) {
   let totalLeads = 0;
   const allLeads = {};
 
-  // Scrape DEVHIRE first — highest priority
   for (const query of DEVHIRE_QUERIES) {
     const leads = await searchPosts(page, query, 'DEVHIRE');
     for (const lead of leads) {
@@ -269,7 +319,6 @@ async function searchPosts(page, query, product) {
     await sleep(rand(3000, 5000));
   }
 
-  // Then MAPZAP
   for (const query of MAPZAP_QUERIES) {
     const leads = await searchPosts(page, query, 'MAPZAP');
     for (const lead of leads) {
@@ -282,6 +331,7 @@ async function searchPosts(page, query, product) {
     await sleep(rand(3000, 5000));
   }
 
+  // Sort by score descending — freshest highest scored leads first
   const sorted = Object.values(allLeads).sort((a, b) => b.score - a.score);
 
   if (sorted.length > 0) {
