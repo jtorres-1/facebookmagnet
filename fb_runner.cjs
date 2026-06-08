@@ -2,7 +2,7 @@ require("dotenv").config();
 const { spawn } = require("child_process");
 const fs = require("fs");
 
-const SCRAPE_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const SCRAPE_INTERVAL_MS = 2 * 60 * 60 * 1000;
 const LOG_PATH = "./runner.log";
 
 function log(msg) {
