@@ -151,7 +151,7 @@ async function commentOnPost(page, postUrl, commentText, authorName) {
 
     // Find and click comment box
     const commentBox = await page.waitForSelector(
-      '[aria-label="Write a comment…"], [aria-label="Write a public comment…"], [aria-placeholder="Write a comment…"]',
+      'div[aria-placeholder^="Comment as"][data-lexical-editor="true"], div[aria-placeholder^="Write a comment"][data-lexical-editor="true"], div[aria-placeholder^="Answer as"][data-lexical-editor="true"]',
       { visible: true, timeout: 8000 }
     ).catch(() => null);
 
