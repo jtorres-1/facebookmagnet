@@ -61,7 +61,6 @@ const MAPZAP_QUERIES = [
   "struggling to find clients",
 ];
 
-// Block developers, agencies, and seller pitch patterns
 const DEV_AGENCY_SIGNALS = [
   // Direct seller signals
   "i offer", "i build", "i provide", "my services", "check out my",
@@ -80,7 +79,7 @@ const DEV_AGENCY_SIGNALS = [
   "agency owner", "software company", "tech company", "it company",
   "web studio", "design studio", "development studio",
   "we are a", "our company", "founded in", "est.", "established",
-  // Seller pitch patterns — they ask YOU if you need something
+  // Seller pitch patterns
   "does your business need",
   "does your company need",
   "does your brand need",
@@ -99,14 +98,23 @@ const DEV_AGENCY_SIGNALS = [
   "we help businesses",
   "we help companies",
   "we help small",
+  "we help your",
+  "we help you",
   "transform your business",
   "grow your business",
   "boost your",
+  "we boost",
+  "we grow",
   "take your business",
   "elevate your",
   "scale your business with",
   "get your business",
   "get a website for",
+  "get you noticed",
+  "get more clients",
+  "get more customers",
+  "visitors into customers",
+  "leads into clients",
   "affordable websites",
   "professional websites",
   "custom websites starting",
@@ -131,6 +139,47 @@ const DEV_AGENCY_SIGNALS = [
   "currently available",
   "slots available",
   "spots available",
+  // Business page / agency signals
+  "we build websites",
+  "we create",
+  "we design",
+  "we deliver",
+  "we offer websites",
+  "we provide websites",
+  "your success",
+  "your business grow",
+  "your brand",
+  "business consultant",
+  "business coach",
+  "business support",
+  "marketing consultant",
+  "growth consultant",
+  "social media manager",
+  "seo specialist",
+  "seo agency",
+  "digital marketing",
+  "online marketing",
+  "we are here to help",
+  "here to help your",
+  "book a call",
+  "book a free",
+  "book now",
+  "schedule a call",
+  "schedule a consultation",
+  "strategy call",
+  "discovery call",
+  "follow us",
+  "follow our page",
+  "check out our page",
+  "visit our page",
+  "testimonials",
+  "case studies",
+  "success stories",
+  "proven results",
+  "results driven",
+  "results guaranteed",
+  "satisfaction guaranteed",
+  "money back",
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -238,11 +287,11 @@ async function searchPosts(page, query, product) {
             if (ageMs > maxAgeMs) return;
           }
 
-          // Block developers, agencies, and seller pitches
+          // Block all seller and agency signals
           const isDev = devAgencySignals.some(s => text.includes(s));
           if (isDev) return;
 
-          // For DEVHIRE — must look like a buyer
+          // For DEVHIRE must look like a buyer
           if (product === 'DEVHIRE') {
             const buyerSignals = [
               "need", "looking for", "hire", "want someone to",
