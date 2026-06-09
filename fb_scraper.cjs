@@ -13,27 +13,13 @@ const DEVHIRE_QUERIES = [
   "I need a website for my business",
   "I need someone to build my website",
   "I need a website built",
-  "I'm looking for a developer",
-  "I am looking for a developer",
+  "I need a developer",
   "I need to hire a developer",
-  "I need an app built for my business",
-  "I need a developer for my project",
-  "I need a freelancer to build",
-  "I need a web developer urgently",
-  "I need a developer asap",
-  "I need someone to build my app",
-  "I need a chatbot for my business",
-  "I need automation for my business",
-  "I need a bot built",
-  "I need a scraper built",
-  "I need AI integration for my business",
-  "I need a landing page built",
-  "I need a shopify store built",
-  "I need a wordpress site built",
-  "I need a mobile app built",
+  "I need a web developer",
+  "I need someone to build",
+  "I need an app built",
   "I need a python developer",
-  "I need a full stack developer",
-  "I'm looking to hire a freelancer",
+  "I need a freelancer",
 ];
 
 const MAPZAP_QUERIES = [
@@ -68,104 +54,32 @@ const DEV_AGENCY_SIGNALS = [
   "agency owner", "software company", "tech company", "it company",
   "web studio", "design studio", "development studio",
   "we are a", "our company", "founded in", "est.", "established",
-  "does your business need",
-  "does your company need",
-  "does your brand need",
-  "is your website",
-  "is your business",
-  "are you looking for a developer",
-  "are you in need of",
-  "do you need a website",
-  "do you need a developer",
-  "do you need help with",
-  "looking for businesses",
-  "i help businesses",
-  "i help companies",
-  "i help small business",
-  "we help businesses",
-  "we help companies",
-  "we help small",
-  "we help your",
-  "we help you",
-  "transform your business",
-  "grow your business",
-  "boost your",
-  "we boost",
-  "we grow",
-  "take your business",
-  "elevate your",
-  "scale your business with",
-  "get your business",
-  "get a website for",
-  "get you noticed",
-  "get more clients",
-  "get more customers",
-  "visitors into customers",
-  "leads into clients",
-  "affordable websites",
-  "professional websites",
-  "custom websites starting",
-  "websites starting at",
-  "starting from",
-  "get in touch",
-  "contact us today",
-  "dm us",
-  "message us",
-  "link in bio",
-  "check our portfolio",
-  "visit our website",
-  "free consultation",
-  "free quote",
-  "limited slots",
-  "limited spots",
-  "taking on new clients",
-  "accepting new clients",
-  "now accepting",
-  "open for work",
-  "open to work",
-  "currently available",
-  "slots available",
-  "spots available",
-  "we build websites",
-  "we create",
-  "we design",
-  "we deliver",
-  "we offer websites",
-  "we provide websites",
-  "your success",
-  "your business grow",
-  "your brand",
-  "business consultant",
-  "business coach",
-  "business support",
-  "marketing consultant",
-  "growth consultant",
-  "social media manager",
-  "seo specialist",
-  "seo agency",
-  "digital marketing",
-  "online marketing",
-  "we are here to help",
-  "here to help your",
-  "book a call",
-  "book a free",
-  "book now",
-  "schedule a call",
-  "schedule a consultation",
-  "strategy call",
-  "discovery call",
-  "follow us",
-  "follow our page",
-  "check out our page",
-  "visit our page",
-  "testimonials",
-  "case studies",
-  "success stories",
-  "proven results",
-  "results driven",
-  "results guaranteed",
-  "satisfaction guaranteed",
-  "money back",
+  "does your business need", "does your company need",
+  "are you looking for a developer", "do you need a website",
+  "do you need a developer", "i help businesses", "i help companies",
+  "we help businesses", "we help companies", "we help you",
+  "transform your business", "grow your business", "boost your",
+  "get more clients", "get more customers", "affordable websites",
+  "professional websites", "websites starting at", "starting from",
+  "book a call", "book a free", "schedule a call", "strategy call",
+  "discovery call", "follow us", "follow our page", "link in bio",
+  "free consultation", "free quote", "limited slots", "limited spots",
+  "taking on new clients", "accepting new clients", "now accepting",
+  "open for work", "open to work", "slots available",
+  "proven results", "results guaranteed", "satisfaction guaranteed",
+  "business consultant", "business coach", "marketing consultant",
+  "social media manager", "seo specialist", "digital marketing",
+];
+
+const FIRST_PERSON_BUYER_SIGNALS = [
+  "i need", "i'm looking", "i am looking", "i want",
+  "i have a budget", "i will pay", "i need to hire",
+  "i'm hiring", "i am hiring", "i need help with",
+  "i need someone to", "i'm searching", "i am searching",
+  "i need a developer", "i need a website", "i need an app",
+  "how do i", "how can i", "i need more clients",
+  "i need leads", "i need customers", "i need prospects",
+  "i need to find", "i need to generate",
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -209,31 +123,16 @@ async function enableRecentPostsFilter(page) {
       allBtn.parentElement.click();
       return true;
     });
-
-    if (!clicked) {
-      console.log("All filter button not found — skipping");
-      return;
-    }
-
+    if (!clicked) { console.log("All filter button not found — skipping"); return; }
     await sleep(rand(1500, 2500));
     console.log("Clicked All filter button.");
-
     const toggle = await page.waitForSelector(
       'input[aria-label="Recent posts"][role="switch"][type="checkbox"]',
       { visible: false, timeout: 8000 }
     ).catch(() => null);
-
-    if (!toggle) {
-      console.log("Recent posts toggle not found after clicking All — skipping");
-      return;
-    }
-
+    if (!toggle) { console.log("Recent posts toggle not found — skipping"); return; }
     const isChecked = await page.evaluate(el => el.getAttribute('aria-checked'), toggle);
-    if (isChecked === 'true') {
-      console.log("Recent posts filter already on.");
-      return;
-    }
-
+    if (isChecked === 'true') { console.log("Recent posts filter already on."); return; }
     await page.evaluate(el => el.click(), toggle);
     await sleep(rand(2000, 3000));
     console.log("Recent posts filter toggled on.");
@@ -250,92 +149,96 @@ async function searchPosts(page, query, product) {
     const url = `https://www.facebook.com/search/posts/?q=${encodeURIComponent(query)}`;
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(rand(3000, 5000));
-
     await enableRecentPostsFilter(page);
     await sleep(rand(2000, 3000));
 
     let emptyScrolls = 0;
 
-    for (let i = 0; i < 10; i++) {
-      await page.evaluate(() => window.scrollBy(0, 1200));
-      await sleep(rand(2000, 3000));
+    for (let i = 0; i < 40; i++) {
+      await page.evaluate(() => window.scrollBy(0, 400));
+      await sleep(rand(1200, 2000));
 
-      const found = await page.evaluate((query, product, devAgencySignals, maxAgeDays) => {
+      const found = await page.evaluate((query, product, devAgencySignals, firstPersonBuyerSignals, maxAgeDays) => {
         const results = {};
         const now = Date.now();
         const maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
 
-        const actionBtns = Array.from(document.querySelectorAll('[aria-label^="Actions for this post by"]'));
+        const msgEls = Array.from(document.querySelectorAll('[data-ad-comet-preview="message"]'));
 
-        actionBtns.forEach(btn => {
-          const authorName = btn.getAttribute('aria-label').replace('Actions for this post by ', '').trim();
-          if (!authorName || authorName.length < 2) return;
+        for (const msgEl of msgEls) {
+          const text = (msgEl.innerText || '').toLowerCase();
+          if (!text || text.length < 20) continue;
 
-          let container = btn;
-          for (let i = 0; i < 15; i++) {
-            container = container.parentElement;
-            if (!container) break;
-            if (container.innerText?.length > 200) break;
-          }
-          if (!container) return;
-
-          const text = (container.innerText || '').toLowerCase();
-
-          let postTimestamp = null;
-
-          const abbrEl = container.querySelector('abbr[data-utime]');
-          if (abbrEl) {
-            postTimestamp = parseInt(abbrEl.getAttribute('data-utime')) * 1000;
-          }
-
-          if (!postTimestamp) {
-            const timeTexts = container.innerText.match(/(\d+)\s*(minute|hour|min|hr|second|sec)s?\s*ago/i);
-            if (timeTexts) {
-              const num = parseInt(timeTexts[1]);
-              const unit = timeTexts[2].toLowerCase();
-              let ms = 0;
-              if (unit.startsWith('sec')) ms = num * 1000;
-              else if (unit.startsWith('min')) ms = num * 60 * 1000;
-              else if (unit.startsWith('hour') || unit.startsWith('hr')) ms = num * 60 * 60 * 1000;
-              postTimestamp = now - ms;
-            }
-          }
-
-          if (!postTimestamp) {
-            const dayMatch = container.innerText.match(/(\d+)\s*days?\s*ago/i);
-            if (dayMatch) {
-              postTimestamp = now - parseInt(dayMatch[1]) * 24 * 60 * 60 * 1000;
-            }
-          }
-
-          if (!postTimestamp && container.innerText.toLowerCase().includes('yesterday')) {
-            postTimestamp = now - 24 * 60 * 60 * 1000;
-          }
-
-          if (postTimestamp) {
-            const ageMs = now - postTimestamp;
-            if (ageMs > maxAgeMs) return;
-          }
-
-          const isDev = devAgencySignals.some(s => text.includes(s));
-          if (isDev) return;
-
-          const firstPersonBuyerSignals = [
-            "i need", "i'm looking", "i am looking", "i want",
-            "i have a budget", "i will pay", "i need to hire",
-            "i'm hiring", "i am hiring", "i need help with",
-            "i need someone to", "i'm searching", "i am searching",
-            "i need a developer", "i need a website", "i need an app",
-            "how do i", "how can i", "i need more clients",
-            "i need leads", "i need customers", "i need prospects",
-            "i need to find", "i need to generate",
-          ];
+          // Must have first person buyer signal
           const isFirstPerson = firstPersonBuyerSignals.some(s => text.includes(s));
-          if (!isFirstPerson) return;
+          if (!isFirstPerson) continue;
 
+          // Must not be a seller
+          const isSeller = devAgencySignals.some(s => text.includes(s));
+          if (isSeller) continue;
+
+          // Get container
+          const container = msgEl.closest('[data-virtualized="false"]');
+          if (!container) continue;
+
+          // Get timestamp
+          let postTimestamp = null;
+          const timeTexts = container.innerText.match(/(\d+)\s*(minute|hour|min|hr|second|sec)s?\s*ago/i);
+          if (timeTexts) {
+            const num = parseInt(timeTexts[1]);
+            const unit = timeTexts[2].toLowerCase();
+            let ms = 0;
+            if (unit.startsWith('sec')) ms = num * 1000;
+            else if (unit.startsWith('min')) ms = num * 60 * 1000;
+            else if (unit.startsWith('hour') || unit.startsWith('hr')) ms = num * 60 * 60 * 1000;
+            postTimestamp = now - ms;
+          }
+          if (!postTimestamp) {
+            if (container.innerText.toLowerCase().includes('yesterday')) {
+              postTimestamp = now - 24 * 60 * 60 * 1000;
+            }
+          }
+          if (postTimestamp) {
+            if (now - postTimestamp > maxAgeMs) continue;
+          }
+
+          // Get profile URL
+          const allLinks = Array.from(container.querySelectorAll('a[href*="facebook.com"]'));
+          const profileLink = allLinks.find(a => {
+            const href = a.href.split('?')[0];
+            return (href.match(/facebook\.com\/[a-zA-Z0-9._]{3,}$/) ||
+                    href.match(/facebook\.com\/profile\.php\?id=/)) &&
+                   !href.includes('/groups/') &&
+                   !href.includes('/events/') &&
+                   !href.includes('/photo') &&
+                   !href.includes('/posts/') &&
+                   !href.includes('/hashtag/');
+          });
+
+          const postLink = allLinks.find(a =>
+            a.href.includes('/posts/') ||
+            a.href.includes('/permalink/') ||
+            a.href.includes('story_fbid')
+          );
+
+          const profileUrl = profileLink ? profileLink.href.split('?')[0] : null;
+          const postUrl = postLink ? postLink.href.split('&__cft__')[0] : null;
+
+          if (!profileUrl && !postUrl) continue;
+
+          // Extract author from profile URL
+          let authorName = '';
+          if (profileUrl) {
+            const match = profileUrl.match(/facebook\.com\/([a-zA-Z0-9._]+)$/);
+            authorName = match ? match[1] : profileUrl;
+          }
+
+          if (!authorName) continue;
+
+          // Score
           let score = 3;
           if (text.includes("budget")) score += 5;
-          if (text.includes("will pay")) score += 5;
+          if (text.includes("will pay") || text.includes("willing to pay")) score += 5;
           if (text.includes("paying")) score += 4;
           if (text.includes("urgent") || text.includes("asap")) score += 4;
           if (text.includes("how much")) score += 3;
@@ -351,35 +254,11 @@ async function searchPosts(page, query, product) {
             if (text.includes("clients")) score += 3;
             if (text.includes("customers")) score += 2;
           }
-
           if (postTimestamp) {
             const ageHours = (now - postTimestamp) / (60 * 60 * 1000);
             if (ageHours < 6) score += 5;
             else if (ageHours < 24) score += 3;
-            else if (ageHours < 48) score += 1;
           }
-
-          const allLinks = Array.from(container.querySelectorAll('a[href*="facebook.com"]'));
-          const postLink = allLinks.find(a =>
-            a.href.includes('/posts/') ||
-            a.href.includes('/permalink/') ||
-            a.href.includes('story_fbid')
-          );
-
-          const profileLink = allLinks.find(a => {
-            const href = a.href.split('?')[0];
-            return (href.match(/facebook\.com\/[a-zA-Z0-9._]{3,}$/) ||
-                    href.match(/facebook\.com\/profile\.php\?id=/)) &&
-                   !href.includes('/groups/') &&
-                   !href.includes('/events/') &&
-                   !href.includes('/photo') &&
-                   !href.includes('/posts/');
-          });
-
-          const postUrl = postLink ? postLink.href.split('&__cft__')[0] : null;
-          const profileUrl = profileLink ? profileLink.href.split('&__cft__')[0].split('&__tn__')[0] : null;
-
-          if (!postUrl && !profileUrl) return;
 
           if (!results[authorName] || score > results[authorName].score) {
             results[authorName] = {
@@ -392,22 +271,22 @@ async function searchPosts(page, query, product) {
               postTimestamp: postTimestamp || null
             };
           }
-        });
+        }
 
         return results;
-      }, query, product, DEV_AGENCY_SIGNALS, MAX_POST_AGE_DAYS);
+      }, query, product, DEV_AGENCY_SIGNALS, FIRST_PERSON_BUYER_SIGNALS, MAX_POST_AGE_DAYS);
 
       const count = Object.keys(found).length;
-      Object.assign(leads, found);
-
-      if (count === 0) {
+      if (count > 0) {
+        Object.assign(leads, found);
+        console.log(`  +${count} leads found (total: ${Object.keys(leads).length})`);
+        emptyScrolls = 0;
+      } else {
         emptyScrolls++;
-        if (emptyScrolls >= 3) {
-          console.log(`No results after ${i+1} scrolls. Moving on.`);
+        if (emptyScrolls >= 8) {
+          console.log(`No new results after ${i+1} scrolls. Moving on.`);
           break;
         }
-      } else {
-        emptyScrolls = 0;
       }
     }
 
