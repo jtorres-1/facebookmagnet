@@ -10,3 +10,8 @@ page_debug.json
 selectors.json
 sent_users.json
 *.json
+email.env
+leads_with_email.csv
+fb_leads_backup.csv
+fix_sendDM.js
+mailer.py
