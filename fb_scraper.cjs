@@ -10,16 +10,16 @@ const SENT_PATH = "./fb_sent.json";
 const MAX_POST_AGE_DAYS = 1;
 
 const DEVHIRE_QUERIES = [
-  "I need a website for my business",
-  "I need someone to build my website",
-  "I need a website built",
-  "I need a developer",
-  "I need to hire a developer",
-  "I need a web developer",
-  "I need someone to build",
-  "I need an app built",
-  "I need a python developer",
-  "I need a freelancer",
+  "I need a website built for my business",
+  "I need a developer to build",
+  "I need to hire a web developer",
+  "I need a python developer for hire",
+  "I need someone to build my app",
+  "I need a freelance developer",
+  "I need a website developer",
+  "I am looking to hire a developer",
+  "I need a developer for my project",
+  "I need an app built for my business",
 ];
 
 const MAPZAP_QUERIES = [
@@ -69,6 +69,8 @@ const DEV_AGENCY_SIGNALS = [
   "proven results", "results guaranteed", "satisfaction guaranteed",
   "business consultant", "business coach", "marketing consultant",
   "social media manager", "seo specialist", "digital marketing",
+  "roofing", "plumbing", "hvac", "electrician", "contractor",
+  "construction", "landscaping", "painting", "cleaning service",
 ];
 
 const FIRST_PERSON_BUYER_SIGNALS = [
@@ -167,21 +169,18 @@ async function searchPosts(page, query, product) {
 
         for (const msgEl of msgEls) {
           const text = (msgEl.innerText || '').toLowerCase();
+          console.log('POST TEXT:', text.substring(0, 100));
           if (!text || text.length < 20) continue;
 
-          // Must have first person buyer signal
           const isFirstPerson = firstPersonBuyerSignals.some(s => text.includes(s));
           if (!isFirstPerson) continue;
 
-          // Must not be a seller
           const isSeller = devAgencySignals.some(s => text.includes(s));
           if (isSeller) continue;
 
-          // Get container
           const container = msgEl.closest('[data-virtualized="false"]');
           if (!container) continue;
 
-          // Get timestamp
           let postTimestamp = null;
           const timeTexts = container.innerText.match(/(\d+)\s*(minute|hour|min|hr|second|sec)s?\s*ago/i);
           if (timeTexts) {
@@ -193,16 +192,11 @@ async function searchPosts(page, query, product) {
             else if (unit.startsWith('hour') || unit.startsWith('hr')) ms = num * 60 * 60 * 1000;
             postTimestamp = now - ms;
           }
-          if (!postTimestamp) {
-            if (container.innerText.toLowerCase().includes('yesterday')) {
-              postTimestamp = now - 24 * 60 * 60 * 1000;
-            }
+          if (!postTimestamp && container.innerText.toLowerCase().includes('yesterday')) {
+            postTimestamp = now - 24 * 60 * 60 * 1000;
           }
-          if (postTimestamp) {
-            if (now - postTimestamp > maxAgeMs) continue;
-          }
+          if (postTimestamp && now - postTimestamp > maxAgeMs) continue;
 
-          // Get profile URL
           const allLinks = Array.from(container.querySelectorAll('a[href*="facebook.com"]'));
           const profileLink = allLinks.find(a => {
             const href = a.href.split('?')[0];
@@ -226,16 +220,13 @@ async function searchPosts(page, query, product) {
 
           if (!profileUrl && !postUrl) continue;
 
-          // Extract author from profile URL
           let authorName = '';
           if (profileUrl) {
             const match = profileUrl.match(/facebook\.com\/([a-zA-Z0-9._]+)$/);
             authorName = match ? match[1] : profileUrl;
           }
-
           if (!authorName) continue;
 
-          // Score
           let score = 3;
           if (text.includes("budget")) score += 5;
           if (text.includes("will pay") || text.includes("willing to pay")) score += 5;
@@ -284,7 +275,7 @@ async function searchPosts(page, query, product) {
       } else {
         emptyScrolls++;
         if (emptyScrolls >= 8) {
-          console.log(`No new results after ${i+1} scrolls. Moving on.`);
+          console.log(`No new results after ${i + 1} scrolls. Moving on.`);
           break;
         }
       }
