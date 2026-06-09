@@ -218,29 +218,27 @@ async function postToGroup(page, groupUrl, postText) {
 
     // Click the post composer
     const composer = await page.evaluate(() => {
-      // Match the exact span Facebook renders for Write something...
+      // Find span with Write something text and walk up to clickable div
       const allSpans = Array.from(document.querySelectorAll('span'));
-      const writeSpan = allSpans.find(s =>
-        s.textContent?.includes('Write something') &&
-        s.style?.webkitLineClamp == 2
-      );
-      if (writeSpan) { writeSpan.click(); return "webkit-span"; }
-      // Walk up and click the clickable parent
-      const anySpan = allSpans.find(s => s.textContent?.includes('Write something'));
-      if (anySpan) {
-        let el = anySpan;
-        for (let i = 0; i < 5; i++) {
-          if (el.getAttribute('role') === 'button' || el.tagName === 'DIV') {
-            el.click();
-            return "parent-click";
-          }
+      const writeSpan = allSpans.find(s => s.textContent?.trim() === 'Write something...');
+      if (writeSpan) {
+        // Walk up DOM to find clickable parent div
+        let el = writeSpan;
+        for (let i = 0; i < 8; i++) {
+          if (!el.parentElement) break;
           el = el.parentElement;
+          if (el.tagName === 'DIV' && (
+            el.getAttribute('role') === 'button' ||
+            el.style?.borderRadius ||
+            el.className?.includes('x1n2onr6')
+          )) {
+            el.click();
+            return "parent-div";
+          }
         }
-        anySpan.click();
-        return "span-click";
+        writeSpan.click();
+        return "span-direct";
       }
-      const pagelet = document.querySelector('[data-pagelet="GroupInlineComposer"]');
-      if (pagelet) { pagelet.click(); return "pagelet"; }
       return false;
     });
 
