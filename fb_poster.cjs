@@ -125,40 +125,68 @@ async function loadSession(page) {
   log("INFO", "Session loaded.");
 }
 
-async function searchGroups(page, query) {
+async function searchAndJoinGroups(page, query) {
   log("SEARCH", `Searching groups for: "${query}"`);
   const url = `https://www.facebook.com/search/groups/?q=${encodeURIComponent(query)}`;
   await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
   await sleep(rand(3000, 5000));
 
   // Scroll to load more groups
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 8; i++) {
     await page.evaluate(() => window.scrollBy(0, 600));
-    await sleep(rand(1500, 2500));
+    await sleep(rand(1200, 2000));
   }
 
-  const groups = await page.evaluate(() => {
+  // Find and join all public groups on results page
+  const joined = await page.evaluate(() => {
     const results = [];
+    // Find all group cards on search results page
     const links = Array.from(document.querySelectorAll('a[href*="/groups/"]'));
+    const seen = new Set();
     for (const link of links) {
       const href = link.href.split('?')[0];
       if (
-        href.match(/facebook\.com\/groups\/[a-zA-Z0-9._]+\/?$/) &&
-        !href.includes('/groups/feed') &&
-        !href.includes('/groups/discover') &&
-        !href.includes('/groups/joins')
-      ) {
-        const text = link.innerText?.trim() || '';
-        if (!results.find(r => r.url === href)) {
-          results.push({ url: href, name: text });
+        !href.match(/facebook\.com\/groups\/[a-zA-Z0-9._]+\/?$/) ||
+        href.includes('/groups/feed') ||
+        href.includes('/groups/discover') ||
+        href.includes('/groups/joins') ||
+        seen.has(href)
+      ) continue;
+      seen.add(href);
+
+      // Find the card container
+      let card = link;
+      for (let i = 0; i < 8; i++) {
+        if (!card.parentElement) break;
+        card = card.parentElement;
+        const cardText = card.innerText || '';
+        // Check if public group
+        if (!cardText.toLowerCase().includes('public group')) break;
+        // Find join button in this card
+        const btns = Array.from(card.querySelectorAll('[role="button"]'));
+        const joinBtn = btns.find(b =>
+          b.innerText?.toLowerCase().trim() === 'join group' ||
+          b.innerText?.toLowerCase().trim() === 'join'
+        );
+        if (joinBtn) {
+          joinBtn.click();
+          results.push({ url: href, name: link.innerText?.trim() || href });
+          break;
+        }
+        // Already a member — add for posting
+        const memberIndicator = cardText.includes('Joined') || cardText.includes('Member');
+        if (memberIndicator) {
+          results.push({ url: href, name: link.innerText?.trim() || href, alreadyMember: true });
+          break;
         }
       }
     }
-    return results.slice(0, 10);
+    return results;
   });
 
-  log("SEARCH", `Found ${groups.length} groups for "${query}"`);
-  return groups;
+  log("SEARCH", `Found ${joined.length} groups for "${query}" — joining public ones`);
+  await sleep(rand(3000, 5000));
+  return joined;
 }
 
 async function joinGroup(page, groupUrl) {
