@@ -7,7 +7,7 @@ const SESSION_PATH = "./session.json";
 const LEADS_PATH = "./fb_leads.csv";
 const SENT_PATH = "./fb_sent.json";
 
-const MAX_POST_AGE_DAYS = 3;
+const MAX_POST_AGE_DAYS = 1;
 
 const DEVHIRE_QUERIES = [
   "I need a website for my business",
@@ -16,13 +16,9 @@ const DEVHIRE_QUERIES = [
   "I'm looking for a developer",
   "I am looking for a developer",
   "I need to hire a developer",
-  "I'm hiring a developer",
   "I need an app built for my business",
   "I need a developer for my project",
   "I need a freelancer to build",
-  "I will pay for a website",
-  "I have a budget for a website",
-  "I have a budget for a developer",
   "I need a web developer urgently",
   "I need a developer asap",
   "I need someone to build my app",
@@ -35,11 +31,9 @@ const DEVHIRE_QUERIES = [
   "I need a shopify store built",
   "I need a wordpress site built",
   "I need a mobile app built",
-  "I need coding help for my business",
   "I need a python developer",
   "I need a full stack developer",
   "I'm looking to hire a freelancer",
-  "I need tech help for my business",
 ];
 
 const MAPZAP_QUERIES = [
