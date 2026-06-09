@@ -2,7 +2,7 @@ require("dotenv").config();
 const { spawn } = require("child_process");
 const fs = require("fs");
 
-const SCRAPE_INTERVAL_MS = 2 * 60 * 60 * 1000;
+const SCRAPE_INTERVAL_MS = 5 * 60 * 60 * 1000;
 const LOG_PATH = "./runner.log";
 
 function log(msg) {
@@ -22,10 +22,8 @@ function runScript(script) {
 
 async function cycle() {
   log("=== Cycle start ===");
-  await runScript("fb_scraper.cjs");
-  await new Promise(r => setTimeout(r, 5000));
-  await runScript("fb_dmbot.cjs");
-  log(`=== Cycle complete. Next in 4 hours ===`);
+  await runScript("fb_poster.cjs");
+  log("=== Cycle complete. Next in 5 hours ===");
 }
 
 (async () => {
