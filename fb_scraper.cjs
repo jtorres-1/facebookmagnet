@@ -10,16 +10,12 @@ const SENT_PATH = "./fb_sent.json";
 const MAX_POST_AGE_DAYS = 1;
 
 const DEVHIRE_QUERIES = [
-  "I need a website built for my business",
-  "I need a developer to build",
-  "I need to hire a web developer",
-  "I need a python developer for hire",
-  "I need someone to build my app",
-  "I need a freelance developer",
-  "I need a website developer",
-  "I am looking to hire a developer",
-  "I need a developer for my project",
-  "I need an app built for my business",
+  "I need a website built",
+  "I need a developer",
+  "I'm hiring a web developer",
+  "I need a full stack developer",
+  "I'm looking for a developer"
+  "Anybody build websites for business?"
 ];
 
 const MAPZAP_QUERIES = [
