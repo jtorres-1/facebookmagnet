@@ -202,20 +202,16 @@ async function postToGroup(page, groupUrl, postText) {
     await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(rand(3000, 5000));
 
-    // Check if we're a member
-    const isMember = await page.evaluate(() => {
+    // Check if join button exists — if so not a member
+    const hasJoinBtn = await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('[role="button"]'));
-      const joinBtn = btns.find(b =>
-        b.innerText?.toLowerCase().includes('join group') ||
-        b.innerText?.toLowerCase().includes('join')
+      return !!btns.find(b =>
+        b.innerText?.toLowerCase().trim() === 'join group' ||
+        b.innerText?.toLowerCase().trim() === 'join'
       );
-      const writeBox = document.querySelector('[data-pagelet="GroupInlineComposer"]') ||
-                       document.querySelector('[placeholder*="Write something"]') ||
-                       document.querySelector('[aria-label*="Write something"]');
-      return !!writeBox && !joinBtn;
     });
 
-    if (!isMember) {
+    if (hasJoinBtn) {
       log("SKIP", `Not a member of ${groupUrl}`);
       return "not_member";
     }
