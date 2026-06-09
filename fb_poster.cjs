@@ -254,26 +254,23 @@ async function postToGroup(page, groupUrl, postText) {
       return "not_member";
     }
 
-    // Click the post composer
-    const composer = await page.evaluate(() => {
-      // Match exact inline style Facebook uses on Write something span
+    // Click the post composer using elementHandle for real click
+    const composerHandle = await page.evaluateHandle(() => {
       const allSpans = Array.from(document.querySelectorAll('span'));
-      const writeSpan = allSpans.find(s =>
+      return allSpans.find(s =>
         s.textContent?.includes('Write something') &&
         s.getAttribute('style')?.includes('-webkit-line-clamp')
-      );
-      if (writeSpan) {
-        writeSpan.click();
-        return "span-clicked";
-      }
-      return false;
+      ) || null;
     });
 
+    const composer = composerHandle.asElement();
     if (!composer) {
       log("SKIP", "No composer found at " + groupUrl);
       return "no_composer";
     }
-    log("INFO", "Composer clicked: " + composer);
+
+    await composer.click();
+    log("INFO", "Composer clicked via handle");
 
     if (!composer) {
       log("SKIP", `No composer found at ${groupUrl}`);
