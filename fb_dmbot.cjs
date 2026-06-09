@@ -15,7 +15,7 @@ const MIN_COMMENT_DELAY_MS = 45000;
 const MAX_COMMENT_DELAY_MS = 90000;
 const PROFILE_LOAD_WAIT = 4000;
 const POST_CLICK_WAIT = 5000;
-const POST_AGE_LIMIT_DAYS = 3;
+const POST_AGE_LIMIT_DAYS = 1;
 
 const SELLER_SIGNALS = [
   "i offer", "i build", "i provide", "my services", "check out my",
@@ -55,9 +55,9 @@ const MAPZAP_MESSAGES = [
   `built a tool that scrapes 100 local businesses in 60 seconds. type a niche and city, download a CSV with names, phones, addresses. $49 once. https://mapzap.org`,
 ];
 
-const DEVHIRE_COMMENT = `python developer in LA available immediately. i build websites, scrapers, bots and automation. 48 hour delivery flat fee. dm me a scope`;
+const DEVHIRE_COMMENT = `python developer in LA available immediately. websites, scrapers, bots, automation. 48 hour delivery flat fee. portfolio: https://casa-fuego-demo.netlify.app dm me a scope`;
 
-const MAPZAP_COMMENT = `i built a tool that pulls 100 local business leads as a CSV in 60 seconds. any niche any city. dm me if you want to check it out`;
+const MAPZAP_COMMENT = `i built a tool that pulls 100 local business leads as a CSV in 60 seconds. any niche any city. $49 one time. https://mapzap.org`;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -199,7 +199,7 @@ async function commentOnPost(page, postUrl, commentText, authorName) {
     await page.keyboard.press("Enter");
     await sleep(rand(2000, 3000));
 
-    console.log(`COMMENTED → ${authorName} | ${commentText.substring(0, 50)}...`);
+    console.log(`COMMENTED → ${authorName} | ${commentText.substring(0, 60)}...`);
 
     const commentDelay = rand(MIN_COMMENT_DELAY_MS, MAX_COMMENT_DELAY_MS);
     console.log(`Waiting ${Math.round(commentDelay / 1000)}s after comment...`);
