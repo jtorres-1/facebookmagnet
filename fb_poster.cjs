@@ -218,13 +218,20 @@ async function postToGroup(page, groupUrl, postText) {
 
     // Click the post composer
     const composer = await page.evaluate(() => {
-      const spans = Array.from(document.querySelectorAll('span'));
-      const writeSpan = spans.find(s => s.innerText?.trim() === 'Write something...');
-      if (writeSpan) { writeSpan.click(); return true; }
-      const writeBox = document.querySelector('[data-pagelet="GroupInlineComposer"]');
-      if (writeBox) { writeBox.click(); return true; }
+      // Try style-clipped span with Write something text
+      const allSpans = Array.from(document.querySelectorAll('span[style*="webkit-line-clamp"]'));
+      const writeSpan = allSpans.find(s => s.textContent?.includes('Write something'));
+      if (writeSpan) { writeSpan.click(); return "webkit-span"; }
+      // Try any span containing Write something
+      const anySpan = Array.from(document.querySelectorAll('span')).find(s => s.textContent?.trim() === 'Write something...');
+      if (anySpan) { anySpan.click(); return "any-span"; }
+      // Try pagelet
+      const pagelet = document.querySelector('[data-pagelet="GroupInlineComposer"]');
+      if (pagelet) { pagelet.click(); return "pagelet"; }
       return false;
     });
+
+    console.log("Composer result:", composer);
 
     if (!composer) {
       log("SKIP", `No composer found at ${groupUrl}`);
