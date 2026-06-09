@@ -202,22 +202,22 @@ async function loadSession(page) {
 
 async function enableRecentPostsFilter(page) {
   try {
-    // Click the "All" button to expand filters dropdown
-    const allBtn = await page.waitForSelector(
-      '[aria-label="Result filters"] [role="radio"]',
-      { visible: true, timeout: 8000 }
-    ).catch(() => null);
+    const clicked = await page.evaluate(() => {
+      const candidates = Array.from(document.querySelectorAll('span[dir="auto"] > span'));
+      const allBtn = candidates.find(s => s.innerText.trim() === 'All' && s.offsetParent !== null);
+      if (!allBtn) return false;
+      allBtn.parentElement.click();
+      return true;
+    });
 
-    if (!allBtn) {
-      console.log("Filters All button not found — skipping");
+    if (!clicked) {
+      console.log("All filter button not found — skipping");
       return;
     }
 
-    await allBtn.click();
     await sleep(rand(1500, 2500));
-    console.log("Clicked All filter button — dropdown should appear.");
+    console.log("Clicked All filter button.");
 
-    // Now wait for the Recent posts toggle
     const toggle = await page.waitForSelector(
       'input[aria-label="Recent posts"][role="switch"][type="checkbox"]',
       { visible: false, timeout: 8000 }
