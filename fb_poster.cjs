@@ -161,6 +161,42 @@ async function searchGroups(page, query) {
   return groups;
 }
 
+async function joinGroup(page, groupUrl) {
+  try {
+    await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 30000 });
+    await sleep(rand(2000, 3000));
+
+    const isPrivate = await page.evaluate(() => {
+      const text = document.body.innerText.toLowerCase();
+      return text.includes('private group') || text.includes('private · group');
+    });
+
+    if (isPrivate) {
+      log("SKIP", "Private group: " + groupUrl);
+      return "private";
+    }
+
+    const joined = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('[role="button"]'));
+      const joinBtn = btns.find(b =>
+        b.innerText?.toLowerCase().trim() === 'join group' ||
+        b.innerText?.toLowerCase().trim() === 'join'
+      );
+      if (joinBtn) { joinBtn.click(); return true; }
+      return false;
+    });
+
+    if (!joined) return "already_member";
+    await sleep(rand(3000, 5000));
+    log("JOINED", groupUrl);
+    return "joined";
+
+  } catch (err) {
+    log("ERROR", "Join failed " + groupUrl + ": " + err.message);
+    return "error";
+  }
+}
+
 async function postToGroup(page, groupUrl, postText) {
   try {
     await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 30000 });
@@ -275,7 +311,19 @@ async function runCycle() {
           log("INFO", `${postsThisCycle}/${MAX_POSTS_PER_CYCLE} posts this cycle. Waiting ${Math.round(MIN_DELAY_MS / 60000)} to ${Math.round(MAX_DELAY_MS / 60000)}min...`);
           await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
         } else if (result === "not_member") {
-          // Skip silently
+          const joinResult = await joinGroup(page, group.url);
+          if (joinResult === "joined") {
+            await sleep(rand(3000, 5000));
+            const postText2 = type === "DEVHIRE" ? pick(DEVHIRE_POSTS) : pick(MAPZAP_POSTS);
+            const postResult2 = await postToGroup(page, group.url, postText2);
+            if (postResult2 === "posted") {
+              posted[group.url] = new Date().toISOString();
+              savePosted(posted);
+              postsThisCycle++;
+              log("INFO", postsThisCycle + "/" + MAX_POSTS_PER_CYCLE + " posts this cycle.");
+              await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
+            }
+          }
         } else if (result === "error" || result === "no_composer") {
           banned.push(group.url);
           saveBanned(banned);
