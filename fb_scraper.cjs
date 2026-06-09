@@ -10,27 +10,30 @@ const SENT_PATH = "./fb_sent.json";
 const MAX_POST_AGE_DAYS = 1;
 
 const DEVHIRE_QUERIES = [
-  "I need a website built",
-  "I need a developer",
-  "I'm hiring a web developer",
-  "I need a full stack developer",
-  "I'm looking for a developer",
-  "Anybody build websites for business?"
+  "anyone know a good web developer",
+  "looking for someone to build my website",
+  "need help with my website",
+  "who can build me a website",
+  "recommendations for a web developer",
+  "can anyone build a website for me",
+  "need a website for my small business",
+  "looking for a good developer",
+  "need someone to build an app for me",
+  "who builds websites",
+  "need a website built",
+  "looking for web developer recommendations",
 ];
 
 const MAPZAP_QUERIES = [
-  "I need leads for my business",
-  "I need more clients for my business",
-  "I need local business leads",
-  "I need a lead list",
-  "how do I find leads for my business",
-  "I'm struggling to find clients",
-  "I need more customers for my business",
-  "I need business leads",
+  "where can I find leads for my business",
+  "how do I find customers for my business",
+  "anyone know where to get business leads",
+  "need more customers for my business",
   "how do I get more clients",
-  "I need to find more customers",
-  "I need prospects for my business",
-  "I need to generate leads",
+  "where do you find your leads",
+  "need phone numbers for local businesses",
+  "how to find local business leads",
+  "where to get leads for my business",
 ];
 
 const DEV_AGENCY_SIGNALS = [
@@ -66,18 +69,21 @@ const DEV_AGENCY_SIGNALS = [
   "business consultant", "business coach", "marketing consultant",
   "social media manager", "seo specialist", "digital marketing",
   "roofing", "plumbing", "hvac", "electrician", "contractor",
-  "construction", "landscaping", "painting", "cleaning service",
+  "construction", "landscaping", "painting",
 ];
 
 const FIRST_PERSON_BUYER_SIGNALS = [
-  "i need", "i'm looking", "i am looking", "i want",
+  "my business", "my company", "my website", "my app", "my store",
+  "i own", "i run", "i have a business", "i have a company",
+  "i need", "i'm looking", "i am looking", "i want to",
   "i have a budget", "i will pay", "i need to hire",
-  "i'm hiring", "i am hiring", "i need help with",
+  "i'm trying to", "i am trying to", "i need help with",
   "i need someone to", "i'm searching", "i am searching",
-  "i need a developer", "i need a website", "i need an app",
   "how do i", "how can i", "i need more clients",
   "i need leads", "i need customers", "i need prospects",
-  "i need to find", "i need to generate",
+  "i need to find", "i need to generate", "i'm struggling",
+  "i am struggling", "i started a", "i just opened",
+  "i recently opened", "i launched", "i just launched",
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -153,8 +159,8 @@ async function searchPosts(page, query, product) {
     let emptyScrolls = 0;
 
     for (let i = 0; i < 40; i++) {
-      await page.evaluate(() => window.scrollBy(0, 400));
-      await sleep(rand(1200, 2000));
+      await page.evaluate(() => window.scrollBy(0, 200));
+      await sleep(rand(2500, 4000));
 
       const found = await page.evaluate((query, product, devAgencySignals, firstPersonBuyerSignals, maxAgeDays) => {
         const results = {};
@@ -165,12 +171,14 @@ async function searchPosts(page, query, product) {
 
         for (const msgEl of msgEls) {
           const text = (msgEl.innerText || '').toLowerCase();
-          console.log('POST TEXT:', text.substring(0, 100));
+          console.log('POST TEXT:', text.substring(0, 150));
           if (!text || text.length < 20) continue;
 
+          // Must have first person buyer signal
           const isFirstPerson = firstPersonBuyerSignals.some(s => text.includes(s));
           if (!isFirstPerson) continue;
 
+          // Must not be a seller
           const isSeller = devAgencySignals.some(s => text.includes(s));
           if (isSeller) continue;
 
