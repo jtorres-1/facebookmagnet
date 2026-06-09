@@ -301,40 +301,41 @@ async function postToGroup(page, groupUrl, postText) {
       return "no_composer";
     }
 
-    // Scroll to element and click it
+    // Scroll to composer and click it to open modal
     await page.evaluate(el => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), composer);
     await sleep(1500);
     await composer.click();
-    log("INFO", "Composer clicked");
-
-    if (!composer) {
-      log("SKIP", `No composer found at ${groupUrl}`);
-      return "no_composer";
-    }
-
     await sleep(rand(2000, 3000));
+    log("INFO", "Composer clicked, waiting for modal...");
 
-    // Click the active contenteditable that appears after composer opens
-    await page.evaluate(() => {
-      const el = document.querySelector('[contenteditable="true"][role="textbox"]') ||
-                 document.querySelector('[contenteditable="true"]');
-      if (el) el.click();
+    // Click inside the modal Create post text area
+    const modalClicked = await page.evaluate(() => {
+      const dialog = document.querySelector('[role="dialog"]');
+      if (dialog) {
+        const editable = dialog.querySelector('[contenteditable="true"]');
+        if (editable) { editable.click(); editable.focus(); return "dialog-editable"; }
+        const spans = Array.from(dialog.querySelectorAll('span'));
+        const ph = spans.find(s => s.textContent?.includes('Create a public post') || s.textContent?.includes('Write something'));
+        if (ph) { ph.click(); return "dialog-span"; }
+      }
+      const editable = document.querySelector('[contenteditable="true"]');
+      if (editable) { editable.click(); editable.focus(); return "editable"; }
+      return false;
     });
 
-    await sleep(rand(1000, 2000));
+    log("INFO", "Modal click result: " + modalClicked);
+    await sleep(rand(1000, 1500));
 
     // Type post text
     await page.keyboard.type(postText, { delay: rand(20, 50) });
     await sleep(rand(2000, 3000));
 
-    // Click Post button
+    // Click Post button inside modal
     const posted = await page.evaluate(() => {
-      const btns = Array.from(document.querySelectorAll('[role="button"]'));
-      const postBtn = btns.find(b => {
-        const text = b.innerText?.trim();
-        return (text === 'Post' || b.querySelector('span')?.innerText?.trim() === 'Post') &&
-               b.offsetParent !== null;
-      });
+      const dialog = document.querySelector('[role="dialog"]');
+      const searchIn = dialog || document;
+      const btns = Array.from(searchIn.querySelectorAll('[role="button"]'));
+      const postBtn = btns.find(b => b.innerText?.trim() === 'Post' && b.offsetParent !== null);
       if (postBtn) { postBtn.click(); return true; }
       return false;
     });
