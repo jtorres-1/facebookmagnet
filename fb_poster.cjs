@@ -140,9 +140,11 @@ async function searchAndJoinGroups(page, query) {
   // Find and join all public groups on results page
   const joined = await page.evaluate(() => {
     const results = [];
-    // Find all group cards on search results page
-    const links = Array.from(document.querySelectorAll('a[href*="/groups/"]'));
     const seen = new Set();
+
+    // Get all links to groups
+    const links = Array.from(document.querySelectorAll('a[href*="/groups/"]'));
+
     for (const link of links) {
       const href = link.href.split('?')[0];
       if (
@@ -154,33 +156,41 @@ async function searchAndJoinGroups(page, query) {
       ) continue;
       seen.add(href);
 
-      // Find the card container
+      // Walk up to find the card container (look for Public in text)
       let card = link;
-      for (let i = 0; i < 8; i++) {
+      let foundCard = null;
+      for (let i = 0; i < 10; i++) {
         if (!card.parentElement) break;
         card = card.parentElement;
-        const cardText = card.innerText || '';
-        // Check if public group
-        if (!cardText.toLowerCase().includes('public group')) break;
-        // Find join button in this card
-        const btns = Array.from(card.querySelectorAll('[role="button"]'));
-        const joinBtn = btns.find(b =>
-          b.innerText?.toLowerCase().trim() === 'join group' ||
-          b.innerText?.toLowerCase().trim() === 'join'
-        );
-        if (joinBtn) {
-          joinBtn.click();
-          results.push({ url: href, name: link.innerText?.trim() || href });
-          break;
-        }
-        // Already a member — add for posting
-        const memberIndicator = cardText.includes('Joined') || cardText.includes('Member');
-        if (memberIndicator) {
-          results.push({ url: href, name: link.innerText?.trim() || href, alreadyMember: true });
+        if (card.innerText?.includes('Public') && card.innerText?.includes('members')) {
+          foundCard = card;
           break;
         }
       }
+
+      if (!foundCard) continue;
+
+      const cardText = foundCard.innerText || '';
+
+      // Check already member
+      if (cardText.includes('Joined') || cardText.includes('Member')) {
+        results.push({ url: href, name: href });
+        continue;
+      }
+
+      // Find Join button
+      const allBtns = Array.from(foundCard.querySelectorAll('[role="button"]'));
+      const joinBtn = allBtns.find(b => {
+        const t = b.innerText?.trim().toLowerCase();
+        return t === 'join' || t === 'join group';
+      });
+
+      if (joinBtn) {
+        joinBtn.click();
+        results.push({ url: href, name: href });
+      }
     }
+
     return results;
   });
 
