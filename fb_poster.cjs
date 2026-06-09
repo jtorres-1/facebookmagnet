@@ -240,27 +240,34 @@ async function postToGroup(page, groupUrl, postText) {
     await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(rand(3000, 5000));
 
-    // Check if join button exists — if so not a member
-    const hasJoinBtn = await page.evaluate(() => {
+    // Check if we are a member by looking for Joined button
+    const memberStatus = await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('[role="button"]'));
-      return !!btns.find(b =>
-        b.innerText?.toLowerCase().trim() === 'join group' ||
-        b.innerText?.toLowerCase().trim() === 'join'
+      const joinedBtn = btns.find(b =>
+        b.innerText?.toLowerCase().includes('joined')
       );
+      const joinBtn = btns.find(b =>
+        b.innerText?.toLowerCase().trim() === 'join group'
+      );
+      if (joinedBtn) return "member";
+      if (joinBtn) return "not_member";
+      return "unknown";
     });
 
-    if (hasJoinBtn) {
+    if (memberStatus === "not_member") {
       log("SKIP", `Not a member of ${groupUrl}`);
       return "not_member";
     }
 
-    // Click the post composer using elementHandle for real click
+    // Click Write something box using elementHandle
     const composerHandle = await page.evaluateHandle(() => {
       const allSpans = Array.from(document.querySelectorAll('span'));
-      return allSpans.find(s =>
-        s.textContent?.includes('Write something') &&
-        s.getAttribute('style')?.includes('-webkit-line-clamp')
-      ) || null;
+      const span = allSpans.find(s =>
+        s.textContent?.trim() === 'Write something...' &&
+        s.getAttribute('style')?.includes('webkit-line-clamp')
+      );
+      if (span) return span;
+      return null;
     });
 
     const composer = composerHandle.asElement();
@@ -269,8 +276,11 @@ async function postToGroup(page, groupUrl, postText) {
       return "no_composer";
     }
 
+    // Scroll to element and click it
+    await page.evaluate(el => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), composer);
+    await page.waitForTimeout(1500);
     await composer.click();
-    log("INFO", "Composer clicked via handle");
+    log("INFO", "Composer clicked");
 
     if (!composer) {
       log("SKIP", `No composer found at ${groupUrl}`);
