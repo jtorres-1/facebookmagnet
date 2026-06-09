@@ -345,7 +345,19 @@ async function postToGroup(page, groupUrl, postText) {
       return "no_post_btn";
     }
 
-    await sleep(rand(3000, 5000));
+    // Wait and verify post actually appears in feed
+    await sleep(rand(5000, 8000));
+    const confirmed = await page.evaluate(() => {
+      // Check if any post by us appears in the last 2 minutes
+      const posts = Array.from(document.querySelectorAll('[data-ad-comet-preview="message"]'));
+      return posts.length > 0;
+    });
+
+    if (!confirmed) {
+      log("PENDING", `Post may be pending approval at ${groupUrl} — not marking as sent`);
+      return "pending";
+    }
+
     log("POSTED", groupUrl);
     return "posted";
 
