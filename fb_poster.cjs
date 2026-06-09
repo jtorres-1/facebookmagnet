@@ -218,9 +218,10 @@ async function postToGroup(page, groupUrl, postText) {
 
     // Click the post composer
     const composer = await page.evaluate(() => {
-      const writeBox = document.querySelector('[data-pagelet="GroupInlineComposer"]') ||
-                       document.querySelector('[placeholder*="Write something"]') ||
-                       document.querySelector('[aria-label*="Write something"]');
+      const spans = Array.from(document.querySelectorAll('span'));
+      const writeSpan = spans.find(s => s.innerText?.trim() === 'Write something...');
+      if (writeSpan) { writeSpan.click(); return true; }
+      const writeBox = document.querySelector('[data-pagelet="GroupInlineComposer"]');
       if (writeBox) { writeBox.click(); return true; }
       return false;
     });
@@ -232,6 +233,15 @@ async function postToGroup(page, groupUrl, postText) {
 
     await sleep(rand(2000, 3000));
 
+    // Click the active contenteditable that appears after composer opens
+    await page.evaluate(() => {
+      const el = document.querySelector('[contenteditable="true"][role="textbox"]') ||
+                 document.querySelector('[contenteditable="true"]');
+      if (el) el.click();
+    });
+
+    await sleep(rand(1000, 2000));
+
     // Type post text
     await page.keyboard.type(postText, { delay: rand(20, 50) });
     await sleep(rand(2000, 3000));
@@ -239,11 +249,11 @@ async function postToGroup(page, groupUrl, postText) {
     // Click Post button
     const posted = await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('[role="button"]'));
-      const postBtn = btns.find(b =>
-        b.innerText?.trim() === 'Post' &&
-        !b.disabled &&
-        b.offsetParent !== null
-      );
+      const postBtn = btns.find(b => {
+        const text = b.innerText?.trim();
+        return (text === 'Post' || b.querySelector('span')?.innerText?.trim() === 'Post') &&
+               b.offsetParent !== null;
+      });
       if (postBtn) { postBtn.click(); return true; }
       return false;
     });
