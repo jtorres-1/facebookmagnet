@@ -218,26 +218,15 @@ async function postToGroup(page, groupUrl, postText) {
 
     // Click the post composer
     const composer = await page.evaluate(() => {
-      // Find span with Write something text and walk up to clickable div
+      // Match exact inline style Facebook uses on Write something span
       const allSpans = Array.from(document.querySelectorAll('span'));
-      const writeSpan = allSpans.find(s => s.textContent?.trim() === 'Write something...');
+      const writeSpan = allSpans.find(s =>
+        s.textContent?.includes('Write something') &&
+        s.getAttribute('style')?.includes('-webkit-line-clamp')
+      );
       if (writeSpan) {
-        // Walk up DOM to find clickable parent div
-        let el = writeSpan;
-        for (let i = 0; i < 8; i++) {
-          if (!el.parentElement) break;
-          el = el.parentElement;
-          if (el.tagName === 'DIV' && (
-            el.getAttribute('role') === 'button' ||
-            el.style?.borderRadius ||
-            el.className?.includes('x1n2onr6')
-          )) {
-            el.click();
-            return "parent-div";
-          }
-        }
         writeSpan.click();
-        return "span-direct";
+        return "span-clicked";
       }
       return false;
     });
