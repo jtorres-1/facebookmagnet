@@ -326,6 +326,8 @@ async function runCycle() {
         } else if (result === "not_member") {
           const joinResult = await joinGroup(page, group.url);
           if (joinResult === "joined") {
+            await sleep(rand(5000, 8000));
+            await page.goto(group.url, { waitUntil: "networkidle2", timeout: 30000 });
             await sleep(rand(3000, 5000));
             const postText2 = type === "DEVHIRE" ? pick(DEVHIRE_POSTS) : pick(MAPZAP_POSTS);
             const postResult2 = await postToGroup(page, group.url, postText2);
