@@ -218,20 +218,37 @@ async function postToGroup(page, groupUrl, postText) {
 
     // Click the post composer
     const composer = await page.evaluate(() => {
-      // Try style-clipped span with Write something text
-      const allSpans = Array.from(document.querySelectorAll('span[style*="webkit-line-clamp"]'));
-      const writeSpan = allSpans.find(s => s.textContent?.includes('Write something'));
+      // Match the exact span Facebook renders for Write something...
+      const allSpans = Array.from(document.querySelectorAll('span'));
+      const writeSpan = allSpans.find(s =>
+        s.textContent?.includes('Write something') &&
+        s.style?.webkitLineClamp == 2
+      );
       if (writeSpan) { writeSpan.click(); return "webkit-span"; }
-      // Try any span containing Write something
-      const anySpan = Array.from(document.querySelectorAll('span')).find(s => s.textContent?.trim() === 'Write something...');
-      if (anySpan) { anySpan.click(); return "any-span"; }
-      // Try pagelet
+      // Walk up and click the clickable parent
+      const anySpan = allSpans.find(s => s.textContent?.includes('Write something'));
+      if (anySpan) {
+        let el = anySpan;
+        for (let i = 0; i < 5; i++) {
+          if (el.getAttribute('role') === 'button' || el.tagName === 'DIV') {
+            el.click();
+            return "parent-click";
+          }
+          el = el.parentElement;
+        }
+        anySpan.click();
+        return "span-click";
+      }
       const pagelet = document.querySelector('[data-pagelet="GroupInlineComposer"]');
       if (pagelet) { pagelet.click(); return "pagelet"; }
       return false;
     });
 
-    console.log("Composer result:", composer);
+    if (!composer) {
+      log("SKIP", "No composer found at " + groupUrl);
+      return "no_composer";
+    }
+    log("INFO", "Composer clicked: " + composer);
 
     if (!composer) {
       log("SKIP", `No composer found at ${groupUrl}`);
