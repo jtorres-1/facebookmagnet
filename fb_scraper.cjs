@@ -14,7 +14,7 @@ const DEVHIRE_QUERIES = [
   "I need a developer",
   "I'm hiring a web developer",
   "I need a full stack developer",
-  "I'm looking for a developer"
+  "I'm looking for a developer",
   "Anybody build websites for business?"
 ];
 
