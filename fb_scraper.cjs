@@ -200,14 +200,37 @@ async function loadSession(page) {
   console.log("Session loaded.");
 }
 
+async function enableRecentPostsFilter(page) {
+  try {
+    const toggle = await page.$('input[aria-label="Recent posts"][role="switch"]');
+    if (!toggle) {
+      console.log("Recent posts toggle not found — skipping");
+      return;
+    }
+    const isChecked = await page.evaluate(el => el.getAttribute('aria-checked'), toggle);
+    if (isChecked === 'true') {
+      console.log("Recent posts filter already on.");
+      return;
+    }
+    await toggle.click();
+    await sleep(rand(2000, 3000));
+    console.log("Recent posts filter toggled on.");
+  } catch (err) {
+    console.log(`Could not toggle Recent posts filter: ${err.message}`);
+  }
+}
+
 async function searchPosts(page, query, product) {
   console.log(`\nSearching: "${query}" [${product}]`);
   const leads = {};
 
   try {
-    const url = `https://www.facebook.com/search/posts/?q=${encodeURIComponent(query)}&filters=eyJyZWNlbnRseVNlZW4iOiJ7XCJuYW1lXCI6XCJjcmVhdGlvbl90aW1lXCIsXCJhcmdzXCI6XCIwXCJ9In0%3D`;
+    const url = `https://www.facebook.com/search/posts/?q=${encodeURIComponent(query)}`;
     await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
-    await sleep(rand(4000, 6000));
+    await sleep(rand(3000, 5000));
+
+    await enableRecentPostsFilter(page);
+    await sleep(rand(2000, 3000));
 
     let emptyScrolls = 0;
 
