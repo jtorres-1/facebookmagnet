@@ -131,6 +131,31 @@ async function searchAndJoinGroups(page, query) {
   await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
   await sleep(rand(3000, 5000));
 
+  // Toggle Public groups filter
+  try {
+    const toggled = await page.evaluate(() => {
+      const labels = Array.from(document.querySelectorAll('span'));
+      const publicLabel = labels.find(s => s.innerText?.trim() === 'Public groups');
+      if (!publicLabel) return false;
+      let el = publicLabel;
+      for (let i = 0; i < 5; i++) {
+        if (!el.parentElement) break;
+        el = el.parentElement;
+        const toggle = el.querySelector('[role="switch"]') || el.querySelector('input[type="checkbox"]');
+        if (toggle) {
+          const isOn = toggle.getAttribute('aria-checked') === 'true' || toggle.checked;
+          if (!isOn) toggle.click();
+          return true;
+        }
+      }
+      return false;
+    });
+    if (toggled) {
+      console.log('[INFO] Public groups filter toggled');
+      await sleep(rand(2000, 3000));
+    }
+  } catch(e) {}
+
   // Scroll to load more groups
   for (let i = 0; i < 8; i++) {
     await page.evaluate(() => window.scrollBy(0, 600));
@@ -278,7 +303,7 @@ async function postToGroup(page, groupUrl, postText) {
 
     // Scroll to element and click it
     await page.evaluate(el => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), composer);
-    await page.waitForTimeout(1500);
+    await sleep(1500);
     await composer.click();
     log("INFO", "Composer clicked");
 
