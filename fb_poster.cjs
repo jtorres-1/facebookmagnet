@@ -335,7 +335,7 @@ async function runCycle() {
         break;
       }
 
-      const groups = await searchGroups(page, query);
+      const groups = await searchAndJoinGroups(page, query);
 
       for (const group of groups) {
         if (postsThisCycle >= MAX_POSTS_PER_CYCLE) break;
