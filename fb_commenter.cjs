@@ -120,18 +120,35 @@ async function scanFeedAndComment(page, commented, commentsThisCycle, maxComment
       const articles = Array.from(document.querySelectorAll('[role="article"]'));
       for (const article of articles) {
         try {
+          // Try multiple text selectors
           const textEl = article.querySelector('[data-ad-comet-preview="message"], [data-ad-preview="message"]');
-          const text = textEl?.innerText || "";
+          const text = textEl?.innerText || article.innerText || "";
           if (text.length < 20) continue;
-          const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"]');
-          if (!timeEl) continue;
-          const postUrl = timeEl.href.split('?')[0];
+
+          // Try multiple URL selectors
+          const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"], a[href*="/groups/"][href*="/posts/"]');
+          let postUrl = null;
+          if (timeEl) {
+            postUrl = timeEl.href.split('?')[0];
+          } else {
+            // Try finding any link with a timestamp
+            const allLinks = Array.from(article.querySelectorAll('a[href]'));
+            const postLink = allLinks.find(a =>
+              a.href.includes('/posts/') ||
+              a.href.includes('story_fbid') ||
+              a.href.includes('/permalink/')
+            );
+            if (postLink) postUrl = postLink.href.split('?')[0];
+          }
           if (!postUrl) continue;
           results.push({ text: text.substring(0, 500), url: postUrl });
         } catch(e) {}
       }
       return results;
     });
+
+    log("INFO", `Scroll ${scrolls}: found ${posts.length} posts`);
+    if (posts.length > 0) log("SAMPLE", `First post: "${posts[0].text.substring(0, 80)}"`);
 
     for (const post of posts) {
       if (commentsThisCycle >= maxComments) break;
