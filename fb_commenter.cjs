@@ -140,8 +140,8 @@ async function getJoinedGroups(page) {
 
 async function getRecentPosts(page, groupUrl) {
   try {
-    await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 30000 });
-    await sleep(rand(2000, 3000));
+    await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 60000 });
+    await sleep(rand(3000, 5000));
 
     // Scroll to load posts
     for (let i = 0; i < 3; i++) {
@@ -245,6 +245,7 @@ async function runCycle() {
     headless: false,
     defaultViewport: null,
     args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'],
+    userDataDir: './commenter_profile',
   });
   const page = await browser.newPage();
   await page.setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
