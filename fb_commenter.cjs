@@ -120,12 +120,20 @@ async function scanFeedAndComment(page, commented, commentsThisCycle, maxComment
       const articles = Array.from(document.querySelectorAll('[role="article"]'));
       for (const article of articles) {
         try {
-          // Get post body using exact Facebook selector
-          const textEl = article.querySelector('div[dir="auto"][style*="text-align"]') ||
-                         article.querySelector('[data-ad-comet-preview="message"]') ||
-                         article.querySelector('[data-ad-preview="message"]');
-          const text = textEl?.innerText?.trim() || "";
-          if (text.length < 20) continue;
+          // Get ORIGINAL post text only — first substantial text block before any comments
+          // Comments appear after like/reply/share buttons so we get text from post header area
+          const allTextDivs = Array.from(article.querySelectorAll('div[dir="auto"][style*="text-align: start"]'));
+          // Filter out short ones (names, single words) and comment-like text
+          const postTextDiv = allTextDivs.find(el => {
+            const t = el.innerText?.trim() || "";
+            if (t.length < 25) return false;
+            // Skip if it looks like a comment reply
+            const lower = t.toLowerCase();
+            if (lower.startsWith("inbox") || lower.startsWith("please inbox") || lower.startsWith("dm me") || lower.startsWith("hi,") || lower.startsWith("hello,")) return false;
+            return true;
+          });
+          const text = postTextDiv?.innerText?.trim() || "";
+          if (text.length < 25) continue;
 
           // Try multiple URL selectors
           const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"], a[href*="/groups/"][href*="/posts/"]');
