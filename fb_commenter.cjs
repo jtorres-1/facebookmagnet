@@ -106,7 +106,7 @@ async function loadSession(page) {
 
 async function getJoinedGroups(page) {
   log("INFO", "Loading joined groups...");
-  await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 30000 });
+  await page.goto("https://www.facebook.com/groups/?category=joined", { waitUntil: "networkidle2", timeout: 30000 });
   await sleep(rand(3000, 5000));
 
   // Scroll to load more groups in sidebar
