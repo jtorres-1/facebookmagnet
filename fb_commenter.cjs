@@ -104,45 +104,78 @@ async function loadSession(page) {
   log("INFO", "Session loaded.");
 }
 
-async function getFeedPosts(page) {
+async function scanFeedAndComment(page, commented, commentsThisCycle, maxComments) {
   log("INFO", "Loading groups feed...");
   await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
   await sleep(rand(3000, 5000));
 
-  // Scroll to load more posts
-  for (let i = 0; i < 10; i++) {
-    await page.evaluate(() => window.scrollBy(0, 800));
-    await sleep(rand(1500, 2500));
-  }
+  const seen = new Set();
+  let scrolls = 0;
+  const MAX_SCROLLS = 15;
 
-  const posts = await page.evaluate(() => {
-    const results = [];
-    const seen = new Set();
+  while (scrolls < MAX_SCROLLS && commentsThisCycle < maxComments) {
+    // Get all visible posts
+    const posts = await page.evaluate(() => {
+      const results = [];
+      const articles = Array.from(document.querySelectorAll('[role="article"]'));
+      for (const article of articles) {
+        try {
+          const textEl = article.querySelector('[data-ad-comet-preview="message"], [data-ad-preview="message"]');
+          const text = textEl?.innerText || "";
+          if (text.length < 20) continue;
+          const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"]');
+          if (!timeEl) continue;
+          const postUrl = timeEl.href.split('?')[0];
+          if (!postUrl) continue;
+          results.push({ text: text.substring(0, 500), url: postUrl });
+        } catch(e) {}
+      }
+      return results;
+    });
 
-    const articles = Array.from(document.querySelectorAll('[role="article"]'));
+    for (const post of posts) {
+      if (commentsThisCycle >= maxComments) break;
+      if (seen.has(post.url)) continue;
+      seen.add(post.url);
 
-    for (const article of articles) {
-      try {
-        const textEl = article.querySelector('[data-ad-comet-preview="message"], [data-ad-preview="message"]');
-        const text = textEl?.innerText || article.innerText || "";
-        if (text.length < 20) continue;
+      if (commented[post.url]) continue;
 
-        // Get post permalink
-        const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"]');
-        if (!timeEl) continue;
-        const postUrl = timeEl.href.split('?')[0];
-        if (!postUrl || seen.has(postUrl)) continue;
-        seen.add(postUrl);
+      const product = classifyPost(post.text);
+      if (!product) {
+        log("SKIP", `No match: "${post.text.substring(0, 50)}"`);
+        continue;
+      }
 
-        results.push({ text: text.substring(0, 500), url: postUrl });
-      } catch(e) {}
+      let commentText;
+      if (product === "DEVHIRE") commentText = pick(DEVHIRE_COMMENTS);
+      else if (product === "CALLDONE") commentText = pick(CALLDONE_COMMENTS);
+      else commentText = pick(MAPZAP_COMMENTS);
+
+      log("MATCH", `[${product}] "${post.text.substring(0, 60)}"`);
+
+      const success = await commentOnPost(page, post.url, commentText);
+
+      if (success) {
+        commented[post.url] = new Date().toISOString();
+        saveCommented(commented);
+        commentsThisCycle++;
+        log("INFO", `${commentsThisCycle}/${maxComments} comments. Waiting ${Math.round(MIN_DELAY_MS/60000)} to ${Math.round(MAX_DELAY_MS/60000)}min...`);
+        await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
+        // Return to feed after commenting
+        await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
+        await sleep(rand(3000, 5000));
+      }
+
+      await sleep(rand(1000, 2000));
     }
 
-    return results;
-  });
+    // Scroll down to load more posts
+    await page.evaluate(() => window.scrollBy(0, 1200));
+    await sleep(rand(2000, 3000));
+    scrolls++;
+  }
 
-  log("INFO", `Found ${posts.length} posts in feed`);
-  return posts;
+  return commentsThisCycle;
 }
 
 async function commentOnPost(page, postUrl, commentText) {
@@ -214,38 +247,7 @@ async function runCycle() {
 
   try {
     await loadSession(page);
-    const posts = await getFeedPosts(page);
-
-    for (const post of posts) {
-      if (commentsThisCycle >= MAX_COMMENTS_PER_CYCLE) {
-        log("INFO", `Hit max comments (${MAX_COMMENTS_PER_CYCLE}). Stopping.`);
-        break;
-      }
-
-      if (commented[post.url]) continue;
-
-      const product = classifyPost(post.text);
-      if (!product) continue;
-
-      let commentText;
-      if (product === "DEVHIRE") commentText = pick(DEVHIRE_COMMENTS);
-      else if (product === "CALLDONE") commentText = pick(CALLDONE_COMMENTS);
-      else commentText = pick(MAPZAP_COMMENTS);
-
-      log("MATCH", `[${product}] "${post.text.substring(0, 60)}"`);
-
-      const success = await commentOnPost(page, post.url, commentText);
-
-      if (success) {
-        commented[post.url] = new Date().toISOString();
-        saveCommented(commented);
-        commentsThisCycle++;
-        log("INFO", `${commentsThisCycle}/${MAX_COMMENTS_PER_CYCLE} comments. Waiting ${Math.round(MIN_DELAY_MS/60000)} to ${Math.round(MAX_DELAY_MS/60000)}min...`);
-        await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
-      }
-
-      await sleep(rand(2000, 3000));
-    }
+    commentsThisCycle = await scanFeedAndComment(page, commented, commentsThisCycle, MAX_COMMENTS_PER_CYCLE);
 
   } catch (err) {
     log("ERROR", `Cycle failed: ${err.message}`);
