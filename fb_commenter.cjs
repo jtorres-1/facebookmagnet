@@ -120,10 +120,12 @@ async function scanFeedAndComment(page, commented, commentsThisCycle, maxComment
       const articles = Array.from(document.querySelectorAll('[role="article"]'));
       for (const article of articles) {
         try {
-          // Try multiple text selectors
-          const textEl = article.querySelector('[data-ad-comet-preview="message"], [data-ad-preview="message"]');
-          const text = textEl?.innerText || article.innerText || "";
-          if (text.length < 20) continue;
+          // Get only the original post text, not comments
+          const textEl = article.querySelector('[data-ad-comet-preview="message"]') ||
+                         article.querySelector('[data-ad-preview="message"]') ||
+                         article.querySelector('[dir="auto"]');
+          const text = textEl?.innerText || "";
+          if (text.length < 10) continue;
 
           // Try multiple URL selectors
           const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"], a[href*="/groups/"][href*="/posts/"]');
