@@ -120,16 +120,12 @@ async function scanFeedAndComment(page, commented, commentsThisCycle, maxComment
       const articles = Array.from(document.querySelectorAll('[role="article"]'));
       for (const article of articles) {
         try {
-          // Get post body — try all known Facebook post text containers
-          const candidates = [
-            article.querySelector('[data-ad-comet-preview="message"]'),
-            article.querySelector('[data-ad-preview="message"]'),
-            ...Array.from(article.querySelectorAll('[dir="auto"]'))
-              .filter(el => el.innerText?.trim().length > 30),
-          ].filter(Boolean);
-          const textEl = candidates[0];
+          // Get post body using exact Facebook selector
+          const textEl = article.querySelector('div[dir="auto"][style*="text-align"]') ||
+                         article.querySelector('[data-ad-comet-preview="message"]') ||
+                         article.querySelector('[data-ad-preview="message"]');
           const text = textEl?.innerText?.trim() || "";
-          if (text.length < 30) continue;
+          if (text.length < 20) continue;
 
           // Try multiple URL selectors
           const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"], a[href*="/groups/"][href*="/posts/"]');
