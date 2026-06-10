@@ -111,7 +111,13 @@ async function loadSession(page) {
 async function scanFeedAndComment(page, commented, commentsThisCycle, maxComments) {
   log("INFO", "Loading groups feed...");
   await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
-  await sleep(rand(3000, 5000));
+  await sleep(5000);
+  // Wait for actual posts to load, not loading skeletons
+  await page.waitForFunction(() => {
+    const articles = Array.from(document.querySelectorAll('[role="article"]'));
+    return articles.some(a => !a.querySelector('[aria-label="Loading..."]') && a.innerText.length > 50);
+  }, { timeout: 30000 }).catch(() => {});
+  await sleep(rand(2000, 3000));
 
   const seen = new Set();
   let scrolls = 0;
