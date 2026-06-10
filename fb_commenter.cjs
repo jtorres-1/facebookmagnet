@@ -127,40 +127,34 @@ async function scanFeedAndComment(page, commented, commentsThisCycle, maxComment
     // Get all visible posts
     const posts = await page.evaluate(() => {
       const results = [];
-      const articles = Array.from(document.querySelectorAll('[role="article"]'));
-      for (const article of articles) {
+      // Only get TOP LEVEL articles — not nested comment articles
+      const allArticles = Array.from(document.querySelectorAll('[role="article"]'));
+      const topLevel = allArticles.filter(a => {
+        // A top-level post article is NOT inside another article
+        const parent = a.parentElement?.closest('[role="article"]');
+        return !parent;
+      });
+
+      for (const article of topLevel) {
         try {
-          // Get ORIGINAL post text only — first substantial text block before any comments
-          // Comments appear after like/reply/share buttons so we get text from post header area
-          const allTextDivs = Array.from(article.querySelectorAll('div[dir="auto"][style*="text-align: start"]'));
-          // Filter out short ones (names, single words) and comment-like text
+          // Get the post text — look for the main content div
+          const allTextDivs = Array.from(article.querySelectorAll('div[dir="auto"]'));
           const postTextDiv = allTextDivs.find(el => {
             const t = el.innerText?.trim() || "";
-            if (t.length < 25) return false;
-            // Skip if it looks like a comment reply
-            const lower = t.toLowerCase();
-            if (lower.startsWith("inbox") || lower.startsWith("please inbox") || lower.startsWith("dm me") || lower.startsWith("hi,") || lower.startsWith("hello,")) return false;
-            return true;
+            return t.length > 30;
           });
           const text = postTextDiv?.innerText?.trim() || "";
-          if (text.length < 25) continue;
+          if (text.length < 30) continue;
 
-          // Try multiple URL selectors
-          const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"], a[href*="/groups/"][href*="/posts/"]');
-          let postUrl = null;
-          if (timeEl) {
-            postUrl = timeEl.href.split('?')[0];
-          } else {
-            // Try finding any link with a timestamp
-            const allLinks = Array.from(article.querySelectorAll('a[href]'));
-            const postLink = allLinks.find(a =>
-              a.href.includes('/posts/') ||
-              a.href.includes('story_fbid') ||
-              a.href.includes('/permalink/')
-            );
-            if (postLink) postUrl = postLink.href.split('?')[0];
-          }
-          if (!postUrl) continue;
+          // Get post URL
+          const allLinks = Array.from(article.querySelectorAll('a[href]'));
+          const postLink = allLinks.find(a =>
+            a.href.includes('/posts/') ||
+            a.href.includes('story_fbid') ||
+            a.href.includes('/permalink/')
+          );
+          if (!postLink) continue;
+          const postUrl = postLink.href.split('?')[0];
           results.push({ text: text.substring(0, 500), url: postUrl });
         } catch(e) {}
       }
