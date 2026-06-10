@@ -104,83 +104,45 @@ async function loadSession(page) {
   log("INFO", "Session loaded.");
 }
 
-async function getJoinedGroups(page) {
-  log("INFO", "Loading joined groups...");
-  await page.goto("https://www.facebook.com/groups/?category=joined", { waitUntil: "networkidle2", timeout: 30000 });
+async function getFeedPosts(page) {
+  log("INFO", "Loading groups feed...");
+  await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
   await sleep(rand(3000, 5000));
 
-  // Scroll to load more groups in sidebar
-  for (let i = 0; i < 5; i++) {
-    await page.evaluate(() => window.scrollBy(0, 600));
-    await sleep(rand(1000, 2000));
+  // Scroll to load more posts
+  for (let i = 0; i < 10; i++) {
+    await page.evaluate(() => window.scrollBy(0, 800));
+    await sleep(rand(1500, 2500));
   }
 
-  const groups = await page.evaluate(() => {
-    const links = Array.from(document.querySelectorAll('a[href*="/groups/"]'));
-    const seen = new Set();
+  const posts = await page.evaluate(() => {
     const results = [];
-    for (const link of links) {
-      const href = link.href.split('?')[0];
-      if (
-        !href.match(/facebook\.com\/groups\/[a-zA-Z0-9._]+\/?$/) ||
-        href.includes('/groups/feed') ||
-        href.includes('/groups/discover') ||
-        href.includes('/groups/joins') ||
-        seen.has(href)
-      ) continue;
-      seen.add(href);
-      results.push({ url: href, name: link.innerText?.trim() || href });
+    const seen = new Set();
+
+    const articles = Array.from(document.querySelectorAll('[role="article"]'));
+
+    for (const article of articles) {
+      try {
+        const textEl = article.querySelector('[data-ad-comet-preview="message"], [data-ad-preview="message"]');
+        const text = textEl?.innerText || article.innerText || "";
+        if (text.length < 20) continue;
+
+        // Get post permalink
+        const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"]');
+        if (!timeEl) continue;
+        const postUrl = timeEl.href.split('?')[0];
+        if (!postUrl || seen.has(postUrl)) continue;
+        seen.add(postUrl);
+
+        results.push({ text: text.substring(0, 500), url: postUrl });
+      } catch(e) {}
     }
+
     return results;
   });
 
-  log("INFO", `Found ${groups.length} groups`);
-  return groups;
-}
-
-async function getRecentPosts(page, groupUrl) {
-  try {
-    await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 60000 });
-    await sleep(rand(3000, 5000));
-
-    // Scroll to load posts
-    for (let i = 0; i < 3; i++) {
-      await page.evaluate(() => window.scrollBy(0, 800));
-      await sleep(rand(1000, 1500));
-    }
-
-    const posts = await page.evaluate((maxAgeHours) => {
-      const results = [];
-      const seen = new Set();
-
-      // Find post containers
-      const postEls = Array.from(document.querySelectorAll('[data-ad-comet-preview="message"], [data-ad-preview="message"]'));
-
-      for (const el of postEls) {
-        try {
-          const text = el.innerText || "";
-          if (text.length < 20) continue;
-
-          // Get post link
-          let postUrl = null;
-          const timeEl = el.closest('[role="article"]')?.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"]');
-          if (timeEl) postUrl = timeEl.href.split('?')[0];
-          if (!postUrl) continue;
-          if (seen.has(postUrl)) continue;
-          seen.add(postUrl);
-
-          results.push({ text: text.substring(0, 500), url: postUrl });
-        } catch(e) {}
-      }
-
-      return results;
-    }, POST_MAX_AGE_HOURS);
-
-    return posts;
-  } catch (err) {
-    log("ERROR", `Failed to get posts from ${groupUrl}: ${err.message}`);
-    return [];
-  }
+  log("INFO", `Found ${posts.length} posts in feed`);
+  return posts;
 }
 
 async function commentOnPost(page, postUrl, commentText) {
@@ -252,48 +214,37 @@ async function runCycle() {
 
   try {
     await loadSession(page);
-    const groups = await getJoinedGroups(page);
+    const posts = await getFeedPosts(page);
 
-    // Shuffle groups each cycle
-    groups.sort(() => Math.random() - 0.5);
-
-    for (const group of groups) {
+    for (const post of posts) {
       if (commentsThisCycle >= MAX_COMMENTS_PER_CYCLE) {
         log("INFO", `Hit max comments (${MAX_COMMENTS_PER_CYCLE}). Stopping.`);
         break;
       }
 
-      const posts = await getRecentPosts(page, group.url);
+      if (commented[post.url]) continue;
 
-      for (const post of posts) {
-        if (commentsThisCycle >= MAX_COMMENTS_PER_CYCLE) break;
+      const product = classifyPost(post.text);
+      if (!product) continue;
 
-        if (commented[post.url]) continue;
+      let commentText;
+      if (product === "DEVHIRE") commentText = pick(DEVHIRE_COMMENTS);
+      else if (product === "CALLDONE") commentText = pick(CALLDONE_COMMENTS);
+      else commentText = pick(MAPZAP_COMMENTS);
 
-        const product = classifyPost(post.text);
-        if (!product) continue;
+      log("MATCH", `[${product}] "${post.text.substring(0, 60)}"`);
 
-        let commentText;
-        if (product === "DEVHIRE") commentText = pick(DEVHIRE_COMMENTS);
-        else if (product === "CALLDONE") commentText = pick(CALLDONE_COMMENTS);
-        else commentText = pick(MAPZAP_COMMENTS);
+      const success = await commentOnPost(page, post.url, commentText);
 
-        log("MATCH", `[${product}] "${post.text.substring(0, 60)}" in ${group.url.substring(0, 50)}`);
-
-        const success = await commentOnPost(page, post.url, commentText);
-
-        if (success) {
-          commented[post.url] = new Date().toISOString();
-          saveCommented(commented);
-          commentsThisCycle++;
-          log("INFO", `${commentsThisCycle}/${MAX_COMMENTS_PER_CYCLE} comments. Waiting ${Math.round(MIN_DELAY_MS/60000)} to ${Math.round(MAX_DELAY_MS/60000)}min...`);
-          await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
-        }
-
-        await sleep(rand(3000, 5000));
+      if (success) {
+        commented[post.url] = new Date().toISOString();
+        saveCommented(commented);
+        commentsThisCycle++;
+        log("INFO", `${commentsThisCycle}/${MAX_COMMENTS_PER_CYCLE} comments. Waiting ${Math.round(MIN_DELAY_MS/60000)} to ${Math.round(MAX_DELAY_MS/60000)}min...`);
+        await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
       }
 
-      await sleep(rand(2000, 4000));
+      await sleep(rand(2000, 3000));
     }
 
   } catch (err) {
