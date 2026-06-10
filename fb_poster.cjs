@@ -8,7 +8,6 @@ const POSTED_PATH = "./fb_posted_groups.json";
 const BANNED_PATH = "./fb_banned_groups.json";
 
 const MAX_POSTS_PER_CYCLE = 30;
-const MAX_POSTS_PER_HOUR = 4;
 const MIN_DELAY_MS = 14 * 60 * 1000;
 const MAX_DELAY_MS = 18 * 60 * 1000;
 const POST_COOLDOWN_DAYS = 3;
@@ -34,14 +33,27 @@ const MAPZAP_QUERIES = [
   "sales prospecting",
 ];
 
+const CALLDONE_QUERIES = [
+  "small business owners Los Angeles",
+  "restaurant owners group",
+  "salon owners network",
+  "contractors business owners",
+  "dental office owners",
+  "law firm owners",
+  "auto shop owners",
+  "gym owners fitness business",
+  "real estate agents business",
+  "local business owners network",
+  "home services business owners",
+  "plumbers electricians contractors",
+];
+
 const DEVHIRE_POSTS = [
   `Hey everyone, putting this out there — I'm a developer based in LA with some availability this week.
 
 I build websites, scrapers, automation tools, and AI integrations. All production ready, fast turnaround.
 
-If you or anyone you know needs something built, feel free to DM me. Flat fee, 48 hour delivery on most projects.
-
-Portfolio: https://casa-fuego-demo.netlify.app`,
+If you or anyone you know needs something built, feel free to DM me. Flat fee, 48 hour delivery on most projects.`,
 
   `Hi all, I'm a Python developer available for freelance work right now.
 
@@ -80,6 +92,44 @@ Type any business niche and city, get 100 leads as a CSV in 60 seconds. Google M
 $49/month unlimited searches. Try 5 leads free first with no credit card.
 
 mapzap.org`,
+];
+
+const CALLDONE_POSTS = [
+  `Hey everyone, sharing something I built for local business owners who miss calls.
+
+It's called CallDone — an AI receptionist that answers every call to your business 24/7. It sounds like a real person, handles FAQs, captures caller info, and texts you a full summary the second each call ends.
+
+Works for any business — restaurants, salons, contractors, dental offices, law firms, gyms, auto shops, real estate.
+
+Call (563) 287-1146 right now to hear the demo live.
+
+$500/month. No setup fee. Live in 48 hours. Cancel anytime.
+
+calldone.org`,
+
+  `If you're a business owner who misses calls when you're busy or closed — this might help.
+
+I built an AI receptionist called CallDone that answers every call 24/7, trained on your specific business. Handles questions, books appointments, captures leads, texts you a summary after every call.
+
+62% of callers won't leave a voicemail. They call your competitor instead.
+
+Hear it live: (563) 287-1146
+
+$500/month, no contracts, no setup fee, live in 48 hours.
+
+calldone.org`,
+
+  `Sharing something useful for any business owner here.
+
+CallDone is an AI receptionist that answers your business calls 24/7 while you're working, after hours, and on weekends. Sounds like a real person on your team. Captures every lead, texts you instantly after every call.
+
+No more missed customers.
+
+Demo: call (563) 287-1146 and hear it yourself.
+
+$500/month flat. No setup fee. Cancel anytime.
+
+calldone.org`,
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -131,7 +181,6 @@ async function searchAndJoinGroups(page, query) {
   await page.goto(url, { waitUntil: "networkidle2", timeout: 30000 });
   await sleep(rand(3000, 5000));
 
-  // Toggle Public groups filter
   try {
     const toggled = await page.evaluate(() => {
       const labels = Array.from(document.querySelectorAll('span'));
@@ -150,24 +199,17 @@ async function searchAndJoinGroups(page, query) {
       }
       return false;
     });
-    if (toggled) {
-      console.log('[INFO] Public groups filter toggled');
-      await sleep(rand(2000, 3000));
-    }
+    if (toggled) await sleep(rand(2000, 3000));
   } catch(e) {}
 
-  // Scroll to load more groups
   for (let i = 0; i < 8; i++) {
     await page.evaluate(() => window.scrollBy(0, 600));
     await sleep(rand(1200, 2000));
   }
 
-  // Find and join all public groups on results page
   const joined = await page.evaluate(() => {
     const results = [];
     const seen = new Set();
-
-    // Get all links to groups
     const links = Array.from(document.querySelectorAll('a[href*="/groups/"]'));
 
     for (const link of links) {
@@ -181,7 +223,6 @@ async function searchAndJoinGroups(page, query) {
       ) continue;
       seen.add(href);
 
-      // Walk up to find the card container (look for Public in text)
       let card = link;
       let foundCard = null;
       for (let i = 0; i < 10; i++) {
@@ -194,16 +235,13 @@ async function searchAndJoinGroups(page, query) {
       }
 
       if (!foundCard) continue;
-
       const cardText = foundCard.innerText || '';
 
-      // Check already member
       if (cardText.includes('Joined') || cardText.includes('Member')) {
         results.push({ url: href, name: href });
         continue;
       }
 
-      // Find Join button
       const allBtns = Array.from(foundCard.querySelectorAll('[role="button"]'));
       const joinBtn = allBtns.find(b => {
         const t = b.innerText?.trim().toLowerCase();
@@ -219,7 +257,7 @@ async function searchAndJoinGroups(page, query) {
     return results;
   });
 
-  log("SEARCH", `Found ${joined.length} groups for "${query}" — joining public ones`);
+  log("SEARCH", `Found ${joined.length} groups for "${query}"`);
   await sleep(rand(3000, 5000));
   return joined;
 }
@@ -234,10 +272,7 @@ async function joinGroup(page, groupUrl) {
       return text.includes('private group') || text.includes('private · group');
     });
 
-    if (isPrivate) {
-      log("SKIP", "Private group: " + groupUrl);
-      return "private";
-    }
+    if (isPrivate) return "private";
 
     const joined = await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('[role="button"]'));
@@ -265,15 +300,10 @@ async function postToGroup(page, groupUrl, postText) {
     await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 30000 });
     await sleep(rand(3000, 5000));
 
-    // Check if we are a member by looking for Joined button
     const memberStatus = await page.evaluate(() => {
       const btns = Array.from(document.querySelectorAll('[role="button"]'));
-      const joinedBtn = btns.find(b =>
-        b.innerText?.toLowerCase().includes('joined')
-      );
-      const joinBtn = btns.find(b =>
-        b.innerText?.toLowerCase().trim() === 'join group'
-      );
+      const joinedBtn = btns.find(b => b.innerText?.toLowerCase().includes('joined'));
+      const joinBtn = btns.find(b => b.innerText?.toLowerCase().trim() === 'join group');
       if (joinedBtn) return "member";
       if (joinBtn) return "not_member";
       return "unknown";
@@ -284,7 +314,6 @@ async function postToGroup(page, groupUrl, postText) {
       return "not_member";
     }
 
-    // Click Write something box using elementHandle
     const composerHandle = await page.evaluateHandle(() => {
       const allSpans = Array.from(document.querySelectorAll('span'));
       const span = allSpans.find(s =>
@@ -301,14 +330,11 @@ async function postToGroup(page, groupUrl, postText) {
       return "no_composer";
     }
 
-    // Scroll to composer and click it to open modal
     await page.evaluate(el => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), composer);
     await sleep(1500);
     await composer.click();
     await sleep(rand(2000, 3000));
-    log("INFO", "Composer clicked, waiting for modal...");
 
-    // Click inside the modal Create post text area
     const modalClicked = await page.evaluate(() => {
       const dialog = document.querySelector('[role="dialog"]');
       if (dialog) {
@@ -323,14 +349,10 @@ async function postToGroup(page, groupUrl, postText) {
       return false;
     });
 
-    log("INFO", "Modal click result: " + modalClicked);
     await sleep(rand(1000, 1500));
-
-    // Type post text
     await page.keyboard.type(postText, { delay: rand(20, 50) });
     await sleep(rand(2000, 3000));
 
-    // Click Post button inside modal
     const posted = await page.evaluate(() => {
       const dialog = document.querySelector('[role="dialog"]');
       const searchIn = dialog || document;
@@ -345,16 +367,14 @@ async function postToGroup(page, groupUrl, postText) {
       return "no_post_btn";
     }
 
-    // Wait and verify post actually appears in feed
     await sleep(rand(5000, 8000));
     const confirmed = await page.evaluate(() => {
-      // Check if any post by us appears in the last 2 minutes
       const posts = Array.from(document.querySelectorAll('[data-ad-comet-preview="message"]'));
       return posts.length > 0;
     });
 
     if (!confirmed) {
-      log("PENDING", `Post may be pending approval at ${groupUrl} — not marking as sent`);
+      log("PENDING", `Post may be pending approval at ${groupUrl}`);
       return "pending";
     }
 
@@ -382,11 +402,12 @@ async function runCycle() {
     const allQueries = [
       ...DEVHIRE_QUERIES.map(q => ({ query: q, type: "DEVHIRE" })),
       ...MAPZAP_QUERIES.map(q => ({ query: q, type: "MAPZAP" })),
+      ...CALLDONE_QUERIES.map(q => ({ query: q, type: "CALLDONE" })),
     ];
 
     for (const { query, type } of allQueries) {
       if (postsThisCycle >= MAX_POSTS_PER_CYCLE) {
-        log("INFO", `Hit max posts per cycle (${MAX_POSTS_PER_CYCLE}). Stopping.`);
+        log("INFO", `Hit max posts (${MAX_POSTS_PER_CYCLE}). Stopping.`);
         break;
       }
 
@@ -401,7 +422,11 @@ async function runCycle() {
           continue;
         }
 
-        const postText = type === "DEVHIRE" ? pick(DEVHIRE_POSTS) : pick(MAPZAP_POSTS);
+        let postText;
+        if (type === "DEVHIRE") postText = pick(DEVHIRE_POSTS);
+        else if (type === "CALLDONE") postText = pick(CALLDONE_POSTS);
+        else postText = pick(MAPZAP_POSTS);
+
         const result = await postToGroup(page, group.url, postText);
 
         if (result === "posted") {
@@ -414,15 +439,16 @@ async function runCycle() {
           const joinResult = await joinGroup(page, group.url);
           if (joinResult === "joined") {
             await sleep(rand(5000, 8000));
-            await page.goto(group.url, { waitUntil: "networkidle2", timeout: 30000 });
-            await sleep(rand(3000, 5000));
-            const postText2 = type === "DEVHIRE" ? pick(DEVHIRE_POSTS) : pick(MAPZAP_POSTS);
+            let postText2;
+            if (type === "DEVHIRE") postText2 = pick(DEVHIRE_POSTS);
+            else if (type === "CALLDONE") postText2 = pick(CALLDONE_POSTS);
+            else postText2 = pick(MAPZAP_POSTS);
             const postResult2 = await postToGroup(page, group.url, postText2);
             if (postResult2 === "posted") {
               posted[group.url] = new Date().toISOString();
               savePosted(posted);
               postsThisCycle++;
-              log("INFO", postsThisCycle + "/" + MAX_POSTS_PER_CYCLE + " posts this cycle.");
+              log("INFO", `${postsThisCycle}/${MAX_POSTS_PER_CYCLE} posts this cycle.`);
               await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
             }
           }
