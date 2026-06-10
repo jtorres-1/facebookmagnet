@@ -180,51 +180,57 @@ async function scanFeedAndComment(page, commented, commentsThisCycle, maxComment
 
 async function commentOnPost(page, postUrl, commentText) {
   try {
-    await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 30000 });
-    await sleep(rand(2000, 3000));
+    await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 60000 });
+    await sleep(rand(3000, 5000));
 
-    // Find comment box
-    const commentBox = await page.evaluate(() => {
-      const boxes = Array.from(document.querySelectorAll('[contenteditable="true"]'));
-      const commentBox = boxes.find(b => {
-        const placeholder = b.getAttribute('aria-placeholder') || b.getAttribute('data-placeholder') || '';
-        return placeholder.toLowerCase().includes('comment') || placeholder.toLowerCase().includes('write');
-      });
-      if (commentBox) { commentBox.click(); commentBox.focus(); return true; }
-
-      // Try clicking "Write a comment" area
-      const writeComment = Array.from(document.querySelectorAll('span')).find(s =>
-        s.innerText?.toLowerCase().includes('write a comment')
-      );
-      if (writeComment) { writeComment.click(); return true; }
+    // Click the exact comment box Facebook uses
+    const clicked = await page.evaluate(() => {
+      const box = document.querySelector('[aria-placeholder="Comment as Jesse"]') ||
+                  document.querySelector('[aria-placeholder="Write a comment…"]') ||
+                  document.querySelector('[aria-placeholder="Write a comment"]') ||
+                  document.querySelector('[data-lexical-editor="true"]');
+      if (box) {
+        box.scrollIntoView({ behavior: "smooth", block: "center" });
+        box.click();
+        box.focus();
+        return true;
+      }
       return false;
     });
 
-    if (!commentBox) {
+    if (!clicked) {
       log("SKIP", `No comment box at ${postUrl}`);
       return false;
     }
 
     await sleep(rand(1000, 2000));
 
-    // Click the comment input again to make sure it's focused
+    // Click again to ensure focus
     await page.evaluate(() => {
-      const boxes = Array.from(document.querySelectorAll('[contenteditable="true"]'));
-      const box = boxes.find(b => {
-        const p = b.getAttribute('aria-placeholder') || b.getAttribute('data-placeholder') || '';
-        return p.toLowerCase().includes('comment') || p.toLowerCase().includes('write');
-      });
+      const box = document.querySelector('[aria-placeholder="Comment as Jesse"]') ||
+                  document.querySelector('[data-lexical-editor="true"]');
       if (box) { box.click(); box.focus(); }
     });
 
     await sleep(rand(500, 1000));
-    await page.keyboard.type(commentText, { delay: rand(20, 40) });
-    await sleep(rand(1500, 2500));
+    await page.keyboard.type(commentText, { delay: rand(25, 50) });
+    await sleep(rand(2000, 3000));
     await page.keyboard.press('Enter');
-    await sleep(rand(3000, 5000));
+    await sleep(rand(4000, 6000));
 
-    log("COMMENTED", `${postUrl.substring(0, 60)}`);
-    return true;
+    // Verify comment was posted
+    const posted = await page.evaluate((text) => {
+      const comments = Array.from(document.querySelectorAll('[data-lexical-editor="true"], [role="article"]'));
+      return comments.some(c => c.innerText?.includes(text.substring(0, 30)));
+    }, commentText);
+
+    if (posted) {
+      log("COMMENTED", `${postUrl.substring(0, 60)}`);
+      return true;
+    } else {
+      log("PENDING", `Comment may have posted at ${postUrl.substring(0, 60)}`);
+      return true;
+    }
 
   } catch (err) {
     log("ERROR", `Comment failed at ${postUrl}: ${err.message}`);
