@@ -10,7 +10,6 @@ const MAX_COMMENTS_PER_CYCLE = 8;
 const MIN_DELAY_MS = 8 * 60 * 1000;
 const MAX_DELAY_MS = 12 * 60 * 1000;
 const CYCLE_INTERVAL_MS = 30 * 60 * 1000;
-const POST_MAX_AGE_HOURS = 6;
 
 const DEVHIRE_KEYWORDS = [
   "need a website","need a developer","need a web developer","need a dev",
@@ -41,10 +40,8 @@ const CALLDONE_KEYWORDS = [
   "need an answering service","need someone to answer",
   "calls go to voicemail","after hours","need 24/7",
   "phone keeps ringing","virtual receptionist","unanswered calls",
-  "customers complain","need call answering","too busy to answer",
-  "always on the job","always on a job","cant pick up","can't pick up",
+  "too busy to answer","always on a job","cant pick up","can't pick up",
   "small business owner","run my own business","i own a business",
-  "my business","our business","we are a local","local business",
   "plumber","plumbing","hvac","roofing","roofer","landscaping",
   "contractor","electrician","salon","dental","dentist","realtor",
   "real estate agent","insurance agent","auto shop","gym owner",
@@ -108,74 +105,64 @@ async function loadSession(page) {
   log("INFO", "Session loaded.");
 }
 
-async function scanFeedAndComment(page, commented, commentsThisCycle, maxComments) {
+async function scanFeedAndComment(page, commented, maxComments) {
+  let commentsThisCycle = 0;
+
   log("INFO", "Loading groups feed...");
   await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
-  await sleep(5000);
-  // Wait for actual posts to load, not loading skeletons
-  await page.waitForFunction(() => {
-    const articles = Array.from(document.querySelectorAll('[role="article"]'));
-    return articles.some(a => !a.querySelector('[aria-label="Loading..."]') && a.innerText.length > 50);
-  }, { timeout: 30000 }).catch(() => {});
-  await sleep(rand(2000, 3000));
+  await sleep(8000);
 
   const seen = new Set();
   let scrolls = 0;
-  const MAX_SCROLLS = 15;
 
-  while (scrolls < MAX_SCROLLS && commentsThisCycle < maxComments) {
-    // Get all visible posts
+  while (scrolls < 20 && commentsThisCycle < maxComments) {
+    // Find original posts — they contain child articles (comments)
     const posts = await page.evaluate(() => {
       const results = [];
-      // Only get TOP LEVEL articles — not nested comment articles
       const allArticles = Array.from(document.querySelectorAll('[role="article"]'));
-      const topLevel = allArticles.filter(a => {
-        // A top-level post article is NOT inside another article
-        const parent = a.parentElement?.closest('[role="article"]');
-        return !parent;
-      });
 
-      for (const article of topLevel) {
-        try {
-          // Get the post text — look for the main content div
-          const allTextDivs = Array.from(article.querySelectorAll('div[dir="auto"]'));
-          const postTextDiv = allTextDivs.find(el => {
-            const t = el.innerText?.trim() || "";
-            return t.length > 30;
-          });
-          const text = postTextDiv?.innerText?.trim() || "";
-          if (text.length < 30) continue;
+      for (const article of allArticles) {
+        // Original posts have child articles inside them
+        const childArticles = article.querySelectorAll('[role="article"]');
+        if (childArticles.length === 0) continue;
 
-          // Get post URL
-          const allLinks = Array.from(article.querySelectorAll('a[href]'));
-          const postLink = allLinks.find(a =>
-            a.href.includes('/posts/') ||
-            a.href.includes('story_fbid') ||
-            a.href.includes('/permalink/')
-          );
-          if (!postLink) continue;
-          const postUrl = postLink.href.split('?')[0];
-          results.push({ text: text.substring(0, 500), url: postUrl });
-        } catch(e) {}
+        // Get all text from direct children only (not from comment articles)
+        // Remove comment articles first, then get text
+        const clone = article.cloneNode(true);
+        const commentArticles = clone.querySelectorAll('[role="article"]');
+        commentArticles.forEach(c => c.remove());
+
+        const text = clone.innerText?.trim() || "";
+        if (text.length < 30) continue;
+
+        // Get post URL
+        const allLinks = Array.from(article.querySelectorAll('a[href]'));
+        const postLink = allLinks.find(a =>
+          a.href.includes('/posts/') ||
+          a.href.includes('story_fbid') ||
+          a.href.includes('/permalink/')
+        );
+        if (!postLink) continue;
+        const postUrl = postLink.href.split('?')[0];
+        if (!postUrl) continue;
+
+        results.push({ text: text.substring(0, 600), url: postUrl });
       }
       return results;
     });
 
-    log("INFO", `Scroll ${scrolls}: found ${posts.length} posts`);
-    if (posts.length > 0) {
-      log("SAMPLE", `First post text: "${posts[0].text.substring(0, 150)}"`);
-    }
+    log("INFO", `Scroll ${scrolls}: found ${posts.length} original posts`);
+    if (posts.length > 0) log("SAMPLE", `"${posts[0].text.substring(0, 120)}"`);
 
     for (const post of posts) {
       if (commentsThisCycle >= maxComments) break;
       if (seen.has(post.url)) continue;
       seen.add(post.url);
-
       if (commented[post.url]) continue;
 
       const product = classifyPost(post.text);
       if (!product) {
-        log("SKIP", `No match: "${post.text.substring(0, 50)}"`);
+        log("SKIP", `No match: "${post.text.substring(0, 60)}"`);
         continue;
       }
 
@@ -184,91 +171,69 @@ async function scanFeedAndComment(page, commented, commentsThisCycle, maxComment
       else if (product === "CALLDONE") commentText = pick(CALLDONE_COMMENTS);
       else commentText = pick(MAPZAP_COMMENTS);
 
-      log("MATCH", `[${product}] "${post.text.substring(0, 60)}"`);
+      log("MATCH", `[${product}] "${post.text.substring(0, 80)}"`);
 
-      const success = await commentOnPost(page, post.url, commentText);
+      // Navigate to post and comment
+      try {
+        await page.goto(post.url, { waitUntil: "networkidle2", timeout: 60000 });
+        await sleep(rand(3000, 5000));
 
-      if (success) {
+        const clicked = await page.evaluate(() => {
+          const box = document.querySelector('[aria-placeholder="Comment as Jesse"]') ||
+                      document.querySelector('[aria-placeholder="Write a comment…"]') ||
+                      document.querySelector('[data-lexical-editor="true"]');
+          if (box) {
+            box.scrollIntoView({ behavior: "smooth", block: "center" });
+            box.click();
+            box.focus();
+            return true;
+          }
+          return false;
+        });
+
+        if (!clicked) {
+          log("SKIP", `No comment box at ${post.url}`);
+          await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
+          await sleep(3000);
+          continue;
+        }
+
+        await sleep(rand(1000, 2000));
+        await page.evaluate(() => {
+          const box = document.querySelector('[aria-placeholder="Comment as Jesse"]') ||
+                      document.querySelector('[data-lexical-editor="true"]');
+          if (box) { box.click(); box.focus(); }
+        });
+        await sleep(500);
+        await page.keyboard.type(commentText, { delay: rand(25, 50) });
+        await sleep(rand(2000, 3000));
+        await page.keyboard.press('Enter');
+        await sleep(rand(4000, 6000));
+
         commented[post.url] = new Date().toISOString();
         saveCommented(commented);
         commentsThisCycle++;
+        log("COMMENTED", `[${product}] ${post.url.substring(0, 60)}`);
         log("INFO", `${commentsThisCycle}/${maxComments} comments. Waiting ${Math.round(MIN_DELAY_MS/60000)} to ${Math.round(MAX_DELAY_MS/60000)}min...`);
         await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
-        // Return to feed after commenting
+
+        // Return to feed
         await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
         await sleep(rand(3000, 5000));
-      }
 
-      await sleep(rand(1000, 2000));
+      } catch (err) {
+        log("ERROR", `Comment failed: ${err.message}`);
+        await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
+        await sleep(3000);
+      }
     }
 
-    // Scroll down to load more posts
     await page.evaluate(() => window.scrollBy(0, 1200));
     await sleep(rand(2000, 3000));
     scrolls++;
   }
 
   return commentsThisCycle;
-}
-
-async function commentOnPost(page, postUrl, commentText) {
-  try {
-    await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 60000 });
-    await sleep(rand(3000, 5000));
-
-    // Click the exact comment box Facebook uses
-    const clicked = await page.evaluate(() => {
-      const box = document.querySelector('[aria-placeholder="Comment as Jesse"]') ||
-                  document.querySelector('[aria-placeholder="Write a comment…"]') ||
-                  document.querySelector('[aria-placeholder="Write a comment"]') ||
-                  document.querySelector('[data-lexical-editor="true"]');
-      if (box) {
-        box.scrollIntoView({ behavior: "smooth", block: "center" });
-        box.click();
-        box.focus();
-        return true;
-      }
-      return false;
-    });
-
-    if (!clicked) {
-      log("SKIP", `No comment box at ${postUrl}`);
-      return false;
-    }
-
-    await sleep(rand(1000, 2000));
-
-    // Click again to ensure focus
-    await page.evaluate(() => {
-      const box = document.querySelector('[aria-placeholder="Comment as Jesse"]') ||
-                  document.querySelector('[data-lexical-editor="true"]');
-      if (box) { box.click(); box.focus(); }
-    });
-
-    await sleep(rand(500, 1000));
-    await page.keyboard.type(commentText, { delay: rand(25, 50) });
-    await sleep(rand(2000, 3000));
-    await page.keyboard.press('Enter');
-    await sleep(rand(4000, 6000));
-
-    // Verify comment was posted
-    const posted = await page.evaluate((text) => {
-      const comments = Array.from(document.querySelectorAll('[data-lexical-editor="true"], [role="article"]'));
-      return comments.some(c => c.innerText?.includes(text.substring(0, 30)));
-    }, commentText);
-
-    if (posted) {
-      log("COMMENTED", `${postUrl.substring(0, 60)}`);
-      return true;
-    } else {
-      log("PENDING", `Comment may have posted at ${postUrl.substring(0, 60)}`);
-      return true;
-    }
-
-  } catch (err) {
-    log("ERROR", `Comment failed at ${postUrl}: ${err.message}`);
-    return false;
-  }
 }
 
 async function runCycle() {
@@ -286,8 +251,7 @@ async function runCycle() {
 
   try {
     await loadSession(page);
-    commentsThisCycle = await scanFeedAndComment(page, commented, commentsThisCycle, MAX_COMMENTS_PER_CYCLE);
-
+    commentsThisCycle = await scanFeedAndComment(page, commented, MAX_COMMENTS_PER_CYCLE);
   } catch (err) {
     log("ERROR", `Cycle failed: ${err.message}`);
   }
