@@ -120,12 +120,16 @@ async function scanFeedAndComment(page, commented, commentsThisCycle, maxComment
       const articles = Array.from(document.querySelectorAll('[role="article"]'));
       for (const article of articles) {
         try {
-          // Get only the original post text, not comments
-          const textEl = article.querySelector('[data-ad-comet-preview="message"]') ||
-                         article.querySelector('[data-ad-preview="message"]') ||
-                         article.querySelector('[dir="auto"]');
-          const text = textEl?.innerText || "";
-          if (text.length < 10) continue;
+          // Get post body — try all known Facebook post text containers
+          const candidates = [
+            article.querySelector('[data-ad-comet-preview="message"]'),
+            article.querySelector('[data-ad-preview="message"]'),
+            ...Array.from(article.querySelectorAll('[dir="auto"]'))
+              .filter(el => el.innerText?.trim().length > 30),
+          ].filter(Boolean);
+          const textEl = candidates[0];
+          const text = textEl?.innerText?.trim() || "";
+          if (text.length < 30) continue;
 
           // Try multiple URL selectors
           const timeEl = article.querySelector('a[href*="/posts/"], a[href*="?story_fbid="], a[href*="/permalink/"], a[href*="/groups/"][href*="/posts/"]');
@@ -150,7 +154,9 @@ async function scanFeedAndComment(page, commented, commentsThisCycle, maxComment
     });
 
     log("INFO", `Scroll ${scrolls}: found ${posts.length} posts`);
-    if (posts.length > 0) log("SAMPLE", `First post: "${posts[0].text.substring(0, 80)}"`);
+    if (posts.length > 0) {
+      log("SAMPLE", `First post text: "${posts[0].text.substring(0, 150)}"`);
+    }
 
     for (const post of posts) {
       if (commentsThisCycle >= maxComments) break;
