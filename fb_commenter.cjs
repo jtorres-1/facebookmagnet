@@ -36,15 +36,19 @@ const MAPZAP_KEYWORDS = [
 ];
 
 const CALLDONE_KEYWORDS = [
-  "miss calls","missing calls","missed calls","can't answer my phone",
-  "can't answer calls","lose customers from missed calls",
-  "need a receptionist","need an answering service","need someone to answer",
-  "calls go to voicemail","losing customers because","after hours calls",
-  "need 24/7 answering","phone keeps ringing","always busy on the phone",
-  "need virtual receptionist","can't afford a receptionist",
-  "need someone to answer my phone","unanswered calls",
-  "customers complain i don't answer","need call answering",
-  "miss calls when i'm working","miss calls when busy",
+  "miss calls","missing calls","missed calls","cant answer","can't answer",
+  "lose customers","losing customers","need a receptionist",
+  "need an answering service","need someone to answer",
+  "calls go to voicemail","after hours","need 24/7",
+  "phone keeps ringing","virtual receptionist","unanswered calls",
+  "customers complain","need call answering","too busy to answer",
+  "always on the job","always on a job","cant pick up","can't pick up",
+  "small business owner","run my own business","i own a business",
+  "my business","our business","we are a local","local business",
+  "plumber","plumbing","hvac","roofing","roofer","landscaping",
+  "contractor","electrician","salon","dental","dentist","realtor",
+  "real estate agent","insurance agent","auto shop","gym owner",
+  "restaurant owner","law firm","attorney",
 ];
 
 const DEVHIRE_COMMENTS = [
