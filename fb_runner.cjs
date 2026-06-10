@@ -1,7 +1,6 @@
 require("dotenv").config();
 const { spawn } = require("child_process");
 const fs = require("fs");
-
 const SCRAPE_INTERVAL_MS = 5 * 60 * 60 * 1000;
 const LOG_PATH = "./runner.log";
 
@@ -23,11 +22,23 @@ function runScript(script) {
 async function cycle() {
   log("=== Cycle start ===");
   await runScript("fb_poster.cjs");
-  log("=== Cycle complete. Next in 5 hours ===");
+  log("=== Poster cycle complete ===");
+}
+
+async function commenterCycle() {
+  log("=== Commenter cycle start ===");
+  await runScript("fb_commenter.cjs");
+  log("=== Commenter cycle complete ===");
 }
 
 (async () => {
   log("FacebookMagnet runner started");
-  await cycle();
+
+  // Run poster and commenter in parallel on separate intervals
+  cycle();
   setInterval(cycle, SCRAPE_INTERVAL_MS);
+
+  // Commenter runs every 30 minutes independently
+  commenterCycle();
+  setInterval(commenterCycle, 30 * 60 * 1000);
 })();
