@@ -4,48 +4,57 @@ const fs = require("fs");
 
 const SESSION_PATH = "./session.json";
 const COMMENTED_PATH = "./fb_commented_posts.json";
+const JOINED_PATH = "./fb_joined_groups.json";
 const LOG_PATH = "./fb_commenter.log";
 
-const MAX_COMMENTS_PER_CYCLE = 8;
-const MIN_DELAY_MS = 8 * 60 * 1000;
-const MAX_DELAY_MS = 12 * 60 * 1000;
-const CYCLE_INTERVAL_MS = 30 * 60 * 1000;
+const MAX_COMMENTS_PER_CYCLE = 15;
+const MIN_DELAY_MS = 5 * 60 * 1000;
+const MAX_DELAY_MS = 8 * 60 * 1000;
+const CYCLE_INTERVAL_MS = 25 * 60 * 1000;
+const MAX_POST_AGE_HOURS = 24;
 
-const DEVHIRE_KEYWORDS = [
-  "need a website","need a developer","need a web developer","need a dev",
-  "looking for a developer","looking for a web developer","hire a developer",
-  "need someone to build","need a programmer","need a coder",
-  "need a website built","need my website built","need a landing page",
-  "need an app built","need a bot built","need automation",
-  "need a shopify","need a wordpress","need someone to code",
-  "looking to hire a developer","want to hire a developer",
-  "need help with my website","need help building",
-  "anyone know a good developer","recommend a developer",
-  "need a freelance developer","need a web app",
+const DEVHIRE_QUERIES = [
+  "I need a website developer",
+  "need a web developer",
+  "hire a developer",
+  "need a website built",
+  "looking for a programmer",
+  "need someone to build my website",
+  "need a freelance developer",
 ];
 
-const MAPZAP_KEYWORDS = [
-  "need more leads","need leads for my business","need more clients",
-  "need more customers","struggling to find clients","need a lead list",
-  "need business leads","how do i find leads","where do i find leads",
-  "need prospects","need cold outreach","need outreach list",
-  "need to generate leads","struggling to get customers",
-  "how to get more clients","need more sales","need a prospect list",
-  "need local business leads","need b2b leads","how to find customers",
+const MAPZAP_QUERIES = [
+  "need more leads for my business",
+  "need business leads",
+  "how to find more clients",
+  "struggling to find customers",
+  "need a lead list",
+  "need more customers",
+  "cold outreach leads",
 ];
 
-const CALLDONE_KEYWORDS = [
-  "miss calls","missing calls","missed calls","cant answer","can't answer",
-  "lose customers","losing customers","need a receptionist",
-  "need an answering service","need someone to answer",
-  "calls go to voicemail","after hours","need 24/7",
-  "phone keeps ringing","virtual receptionist","unanswered calls",
-  "too busy to answer","always on a job","cant pick up","can't pick up",
-  "small business owner","run my own business","i own a business",
-  "plumber","plumbing","hvac","roofing","roofer","landscaping",
-  "contractor","electrician","salon","dental","dentist","realtor",
-  "real estate agent","insurance agent","auto shop","gym owner",
-  "restaurant owner","law firm","attorney",
+const AGENCYHIRE_QUERIES = [
+  "struggling to scale my agency",
+  "need more clients for my agency",
+  "agency outreach help",
+  "smma outreach",
+  "how to get clients for my agency",
+  "agency lead generation",
+  "marketing agency growth",
+  "need outreach for my agency",
+  "automate my agency outreach",
+  "agency owner need help with outreach",
+];
+
+const CALLDONE_QUERIES = [
+  "small business owners Los Angeles",
+  "restaurant owners group",
+  "salon owners network",
+  "contractors business owners",
+  "plumbers electricians contractors",
+  "home services business owners",
+  "missing calls small business",
+  "need a receptionist small business",
 ];
 
 const DEVHIRE_COMMENTS = [
@@ -69,6 +78,13 @@ const CALLDONE_COMMENTS = [
   `calldone.org answers this — AI receptionist for your business, 24/7, no missed calls ever. captures leads, handles questions, texts you a summary. $500/month, live in 48hrs. demo: (563) 287-1146`,
 ];
 
+const AGENCYHIRE_COMMENTS = [
+  `i automate exactly this — built an outreach system that sends 1000+ targeted messages per day across Reddit, Facebook, Discord, and X to your ideal clients. set it up on your agency in 48 hours, flat fee $1,500. $500/month to keep it running. deposit to start: https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d DM me if interested`,
+  `this is solvable with automation — i run an outreach stack that hits Reddit, Facebook, Discord, and X simultaneously. finds your ideal clients, messages them automatically, 1000+ per day. deploy it for your agency in 48hrs for $1,500 flat. retainer $500/month. https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
+  `built an automated outreach system for exactly this — Reddit DMs, Facebook group comments, Discord posts, X replies, all running 24/7 targeting your niche. $1,500 setup, 48 hour delivery, $500/month retainer. works while you sleep. DM me a scope: https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
+  `scale your agency outreach without hiring — i deploy a full automated system on your accounts. Reddit, Facebook, Discord, X. 1000+ targeted messages per day to verified buyers in your niche. $1,500 flat to set up, $500/month to maintain. deposit here: https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
+];
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -84,16 +100,24 @@ function loadCommented() {
   try { return JSON.parse(fs.readFileSync(COMMENTED_PATH)); } catch { return {}; }
 }
 
-function saveCommented(commented) {
-  fs.writeFileSync(COMMENTED_PATH, JSON.stringify(commented, null, 2));
+function saveCommented(c) {
+  fs.writeFileSync(COMMENTED_PATH, JSON.stringify(c, null, 2));
 }
 
-function classifyPost(text) {
-  const t = text.toLowerCase();
-  if (CALLDONE_KEYWORDS.some(k => t.includes(k))) return "CALLDONE";
-  if (DEVHIRE_KEYWORDS.some(k => t.includes(k))) return "DEVHIRE";
-  if (MAPZAP_KEYWORDS.some(k => t.includes(k))) return "MAPZAP";
-  return null;
+function loadJoined() {
+  if (!fs.existsSync(JOINED_PATH)) return {};
+  try { return JSON.parse(fs.readFileSync(JOINED_PATH)); } catch { return {}; }
+}
+
+function saveJoined(j) {
+  fs.writeFileSync(JOINED_PATH, JSON.stringify(j, null, 2));
+}
+
+function classifyQuery(query) {
+  if (DEVHIRE_QUERIES.includes(query)) return "DEVHIRE";
+  if (MAPZAP_QUERIES.includes(query)) return "MAPZAP";
+  if (AGENCYHIRE_QUERIES.includes(query)) return "AGENCYHIRE";
+  return "CALLDONE";
 }
 
 async function loadSession(page) {
@@ -105,139 +129,150 @@ async function loadSession(page) {
   log("INFO", "Session loaded.");
 }
 
-async function scanFeedAndComment(page, commented, maxComments) {
-  let commentsThisCycle = 0;
-
-  log("INFO", "Loading groups feed...");
-  await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
-  await sleep(8000);
-
-  const seen = new Set();
-  let scrolls = 0;
-
-  while (scrolls < 20 && commentsThisCycle < maxComments) {
-    // Find original posts — they contain child articles (comments)
-    const posts = await page.evaluate(() => {
-      const results = [];
-      const allArticles = Array.from(document.querySelectorAll('[role="article"]'));
-
-      for (const article of allArticles) {
-        // Original posts have child articles inside them
-        const childArticles = article.querySelectorAll('[role="article"]');
-        if (childArticles.length === 0) continue;
-
-        // Get all text from direct children only (not from comment articles)
-        // Remove comment articles first, then get text
-        const clone = article.cloneNode(true);
-        const commentArticles = clone.querySelectorAll('[role="article"]');
-        commentArticles.forEach(c => c.remove());
-
-        const text = clone.innerText?.trim() || "";
-        if (text.length < 30) continue;
-
-        // Get post URL
-        const allLinks = Array.from(article.querySelectorAll('a[href]'));
-        const postLink = allLinks.find(a =>
-          a.href.includes('/posts/') ||
-          a.href.includes('story_fbid') ||
-          a.href.includes('/permalink/')
-        );
-        if (!postLink) continue;
-        const postUrl = postLink.href.split('?')[0];
-        if (!postUrl) continue;
-
-        results.push({ text: text.substring(0, 600), url: postUrl });
-      }
-      return results;
-    });
-
-    log("INFO", `Scroll ${scrolls}: found ${posts.length} original posts`);
-    if (posts.length > 0) log("SAMPLE", `"${posts[0].text.substring(0, 120)}"`);
-
-    for (const post of posts) {
-      if (commentsThisCycle >= maxComments) break;
-      if (seen.has(post.url)) continue;
-      seen.add(post.url);
-      if (commented[post.url]) continue;
-
-      const product = classifyPost(post.text);
-      if (!product) {
-        log("SKIP", `No match: "${post.text.substring(0, 60)}"`);
-        continue;
-      }
-
-      let commentText;
-      if (product === "DEVHIRE") commentText = pick(DEVHIRE_COMMENTS);
-      else if (product === "CALLDONE") commentText = pick(CALLDONE_COMMENTS);
-      else commentText = pick(MAPZAP_COMMENTS);
-
-      log("MATCH", `[${product}] "${post.text.substring(0, 80)}"`);
-
-      // Navigate to post and comment
-      try {
-        await page.goto(post.url, { waitUntil: "networkidle2", timeout: 60000 });
-        await sleep(rand(3000, 5000));
-
-        const clicked = await page.evaluate(() => {
-          const box = document.querySelector('[aria-placeholder="Comment as Jesse"]') ||
-                      document.querySelector('[aria-placeholder="Write a comment…"]') ||
-                      document.querySelector('[data-lexical-editor="true"]');
-          if (box) {
-            box.scrollIntoView({ behavior: "smooth", block: "center" });
-            box.click();
-            box.focus();
-            return true;
-          }
-          return false;
-        });
-
-        if (!clicked) {
-          log("SKIP", `No comment box at ${post.url}`);
-          await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
-          await sleep(3000);
-          continue;
-        }
-
-        await sleep(rand(1000, 2000));
-        await page.evaluate(() => {
-          const box = document.querySelector('[aria-placeholder="Comment as Jesse"]') ||
-                      document.querySelector('[data-lexical-editor="true"]');
-          if (box) { box.click(); box.focus(); }
-        });
-        await sleep(500);
-        await page.keyboard.type(commentText, { delay: rand(25, 50) });
-        await sleep(rand(2000, 3000));
-        await page.keyboard.press('Enter');
-        await sleep(rand(4000, 6000));
-
-        commented[post.url] = new Date().toISOString();
-        saveCommented(commented);
-        commentsThisCycle++;
-        log("COMMENTED", `[${product}] ${post.url.substring(0, 60)}`);
-        log("INFO", `${commentsThisCycle}/${maxComments} comments. Waiting ${Math.round(MIN_DELAY_MS/60000)} to ${Math.round(MAX_DELAY_MS/60000)}min...`);
-        await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
-
-        // Return to feed
-        await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
-        await sleep(rand(3000, 5000));
-
-      } catch (err) {
-        log("ERROR", `Comment failed: ${err.message}`);
-        await page.goto("https://www.facebook.com/groups/feed/", { waitUntil: "networkidle2", timeout: 60000 });
-        await sleep(3000);
-      }
-    }
-
-    await page.evaluate(() => window.scrollBy(0, 1200));
-    await sleep(rand(2000, 3000));
-    scrolls++;
+async function searchGroups(page, query) {
+  const url = `https://www.facebook.com/search/groups/?q=${encodeURIComponent(query)}`;
+  await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
+  await sleep(rand(4000, 6000));
+  for (let i = 0; i < 6; i++) {
+    await page.evaluate(() => window.scrollBy(0, 600));
+    await sleep(rand(1000, 1500));
   }
 
-  return commentsThisCycle;
+  const groups = await page.evaluate(() => {
+    const seen = new Set();
+    const results = [];
+    Array.from(document.querySelectorAll('a[href*="/groups/"]')).forEach(a => {
+      const href = a.href.split('?')[0];
+      if (
+        !href.match(/facebook\.com\/groups\/[a-zA-Z0-9._]+\/?$/) ||
+        href.includes('/groups/feed') ||
+        href.includes('/groups/discover') ||
+        href.includes('/groups/joins') ||
+        seen.has(href)
+      ) return;
+      seen.add(href);
+      results.push(href);
+    });
+    return results;
+  });
+
+  log("INFO", `Found ${groups.length} groups for "${query}"`);
+  return groups;
+}
+
+async function joinGroup(page, groupUrl) {
+  try {
+    await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 30000 });
+    await sleep(rand(3000, 4000));
+
+    const result = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('[role="button"]'));
+      const joinBtn = btns.find(b => {
+        const t = b.innerText?.toLowerCase().trim();
+        return t === 'join group' || t === 'join';
+      });
+      if (joinBtn) { joinBtn.click(); return "joined"; }
+      const joinedBtn = btns.find(b => b.innerText?.toLowerCase().includes('joined'));
+      if (joinedBtn) return "already";
+      return "not_found";
+    });
+
+    if (result === "joined") {
+      log("JOINED", groupUrl);
+      await sleep(rand(4000, 6000));
+    }
+    return result;
+  } catch (err) {
+    log("ERROR", `Join failed ${groupUrl}: ${err.message}`);
+    return "error";
+  }
+}
+
+async function getRecentPostUrls(page, groupUrl) {
+  await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 60000 });
+  await sleep(rand(6000, 8000));
+  for (let i = 0; i < 10; i++) {
+    await page.evaluate(() => window.scrollBy(0, 700));
+    await sleep(rand(800, 1200));
+  }
+
+  const postUrls = await page.evaluate((maxAgeHours) => {
+    const seen = new Set();
+    const results = [];
+
+    Array.from(document.querySelectorAll('a[href*="/posts/"]')).forEach(a => {
+      const base = a.href.split('?')[0];
+      if (!base.includes('/posts/') || seen.has(base)) return;
+
+      // Try to find post age from nearby timestamp text
+      let ageOk = true;
+      let el = a;
+      for (let i = 0; i < 8; i++) {
+        if (!el.parentElement) break;
+        el = el.parentElement;
+        const text = el.innerText || '';
+        // Facebook timestamps: "Just now", "Xm", "Xh", "Xd", "X hours ago"
+        const hourMatch = text.match(/(\d+)\s*h(?:ours?)?/i);
+        const dayMatch = text.match(/(\d+)\s*d(?:ays?)?/i);
+        const minMatch = text.match(/(\d+)\s*m(?:in)?/i);
+        if (dayMatch && parseInt(dayMatch[1]) >= 1) { ageOk = false; break; }
+        if (hourMatch && parseInt(hourMatch[1]) > maxAgeHours) { ageOk = false; break; }
+        if (hourMatch || minMatch || text.includes('Just now')) break;
+      }
+
+      if (ageOk) {
+        seen.add(base);
+        results.push(base);
+      }
+    });
+
+    return results.slice(0, 10);
+  }, MAX_POST_AGE_HOURS);
+
+  log("INFO", `${groupUrl.split('/groups/')[1]}: found ${postUrls.length} recent post URLs`);
+  return postUrls;
+}
+
+async function commentOnPost(page, postUrl, commentText) {
+  await page.goto(postUrl, { waitUntil: "networkidle2", timeout: 60000 });
+  await sleep(rand(4000, 5000));
+
+  // Wait for comment box
+  try {
+    await page.waitForSelector(
+      '[aria-placeholder="Write a comment…"], [aria-placeholder*="Comment as"], [data-lexical-editor="true"]',
+      { timeout: 10000 }
+    );
+  } catch {
+    log("SKIP", `No comment box loaded at ${postUrl.substring(0, 60)}`);
+    return false;
+  }
+
+  const clicked = await page.evaluate(() => {
+    const box =
+      document.querySelector('[aria-placeholder="Write a comment…"]') ||
+      document.querySelector('[aria-placeholder*="Comment as"]') ||
+      document.querySelector('[data-lexical-editor="true"]');
+    if (!box) return false;
+    box.scrollIntoView({ behavior: "smooth", block: "center" });
+    box.click();
+    box.focus();
+    return true;
+  });
+
+  if (!clicked) return false;
+
+  await sleep(rand(1000, 1500));
+  await page.keyboard.type(commentText, { delay: rand(25, 45) });
+  await sleep(rand(1500, 2500));
+  await page.keyboard.press('Enter');
+  await sleep(rand(3000, 5000));
+  return true;
 }
 
 async function runCycle() {
   const commented = loadCommented();
+  const joined = loadJoined();
   let commentsThisCycle = 0;
 
   const browser = await puppeteer.launch({
@@ -251,7 +286,75 @@ async function runCycle() {
 
   try {
     await loadSession(page);
-    commentsThisCycle = await scanFeedAndComment(page, commented, MAX_COMMENTS_PER_CYCLE);
+
+    const allQueries = [
+      ...DEVHIRE_QUERIES,
+      ...MAPZAP_QUERIES,
+      ...CALLDONE_QUERIES,
+      ...AGENCYHIRE_QUERIES,
+    ];
+
+    // Shuffle queries so we don't always hit the same ones
+    allQueries.sort(() => Math.random() - 0.5);
+
+    for (const query of allQueries) {
+      if (commentsThisCycle >= MAX_COMMENTS_PER_CYCLE) break;
+
+      const product = DEVHIRE_QUERIES.includes(query) ? "DEVHIRE" :
+                      MAPZAP_QUERIES.includes(query) ? "MAPZAP" : "CALLDONE";
+
+      const groupUrls = await searchGroups(page, query);
+
+      for (const groupUrl of groupUrls) {
+        if (commentsThisCycle >= MAX_COMMENTS_PER_CYCLE) break;
+
+        // Join if not already joined
+        if (!joined[groupUrl]) {
+          const joinResult = await joinGroup(page, groupUrl);
+          joined[groupUrl] = joinResult;
+          saveJoined(joined);
+          if (joinResult === "error") continue;
+          await sleep(rand(3000, 5000));
+        }
+
+        const postUrls = await getRecentPostUrls(page, groupUrl);
+
+        for (const postUrl of postUrls) {
+          if (commentsThisCycle >= MAX_COMMENTS_PER_CYCLE) break;
+          if (commented[postUrl]) continue;
+
+          let commentText;
+          if (product === "DEVHIRE") commentText = pick(DEVHIRE_COMMENTS);
+          else if (product === "MAPZAP") commentText = pick(MAPZAP_COMMENTS);
+          else commentText = pick(CALLDONE_COMMENTS);
+
+          log("MATCH", `[${product}] ${postUrl.substring(0, 70)}`);
+
+          try {
+            const success = await commentOnPost(page, postUrl, commentText);
+            if (!success) {
+              log("SKIP", `Could not comment on ${postUrl.substring(0, 60)}`);
+              continue;
+            }
+
+            commented[postUrl] = new Date().toISOString();
+            saveCommented(commented);
+            commentsThisCycle++;
+            log("COMMENTED", `[${product}] ${commentsThisCycle}/${MAX_COMMENTS_PER_CYCLE} — ${postUrl.substring(0, 60)}`);
+            log("INFO", `Waiting ${Math.round(MIN_DELAY_MS/60000)} to ${Math.round(MAX_DELAY_MS/60000)} min...`);
+            await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
+
+          } catch (err) {
+            log("ERROR", `Comment failed: ${err.message}`);
+          }
+        }
+
+        await sleep(rand(3000, 5000));
+      }
+
+      await sleep(rand(4000, 7000));
+    }
+
   } catch (err) {
     log("ERROR", `Cycle failed: ${err.message}`);
   }
@@ -270,3 +373,4 @@ async function runCycle() {
     await sleep(CYCLE_INTERVAL_MS);
   }
 })();
+
