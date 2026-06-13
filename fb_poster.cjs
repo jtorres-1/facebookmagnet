@@ -48,20 +48,38 @@ const CALLDONE_QUERIES = [
   "plumbers electricians contractors",
 ];
 
+const AGENCYHIRE_QUERIES = [
+  "digital marketing agency owners",
+  "smma owners group",
+  "marketing agency growth",
+  "agency owner community",
+  "social media marketing agency",
+  "agency outreach help",
+];
+
+const AUTOSUB_QUERIES = [
+  "how to automate outreach",
+  "Reddit marketing for business",
+  "lead generation automation",
+  "cold outreach tools",
+  "outreach for agency owners",
+  "entrepreneur outreach strategy",
+];
+
 const DEVHIRE_POSTS = [
-  `Hey everyone, putting this out there — I'm a developer based in LA with some availability this week.
+  `Hey everyone, putting this out there. I am a developer based in LA with some availability this week.
 
 I build websites, scrapers, automation tools, and AI integrations. All production ready, fast turnaround.
 
 If you or anyone you know needs something built, feel free to DM me. Flat fee, 48 hour delivery on most projects.`,
 
-  `Hi all, I'm a Python developer available for freelance work right now.
+  `Hi all, I am a Python developer available for freelance work right now.
 
-Stuff I've shipped: business websites, Google Maps scrapers, email outreach pipelines, automation bots. All running in production.
+Stuff I have shipped: business websites, Google Maps scrapers, email outreach pipelines, automation bots. All running in production.
 
-Looking for a project this week. DM me a scope and I'll tell you if I can build it. Flat fee only, no hourly.`,
+Looking for a project this week. DM me a scope and I will tell you if I can build it. Flat fee only, no hourly.`,
 
-  `Hey, hope this is okay to share here. I'm a freelance developer in LA looking for work this week.
+  `Hey, hope this is okay to share here. I am a freelance developer in LA looking for work this week.
 
 I specialize in Python, Node.js, web apps, and automation. Fast turnaround, flat pricing, no surprises.
 
@@ -77,11 +95,11 @@ $49 per month, unlimited searches. Free preview at mapzap.org if you want to try
 
 Happy to answer any questions.`,
 
-  `Sharing something I built that's been saving me hours on lead research.
+  `Sharing something I built that has been saving me hours on lead research.
 
-MapZap pulls local business leads from Google Maps — name, phone, address, website — as a downloadable CSV. Takes about a minute per search.
+MapZap pulls local business leads from Google Maps. Name, phone, address, website as a downloadable CSV. Takes about a minute per search.
 
-Monthly subscription at $49 gets you unlimited searches. There's also a $99/month tier that includes business emails.
+$49 per month gets you unlimited searches.
 
 Free trial at mapzap.org`,
 
@@ -97,9 +115,9 @@ mapzap.org`,
 const CALLDONE_POSTS = [
   `Hey everyone, sharing something I built for local business owners who miss calls.
 
-It's called CallDone — an AI receptionist that answers every call to your business 24/7. It sounds like a real person, handles FAQs, captures caller info, and texts you a full summary the second each call ends.
+It is called CallDone. An AI receptionist that answers every call to your business 24/7. It sounds like a real person, handles FAQs, captures caller info, and texts you a full summary the second each call ends.
 
-Works for any business — restaurants, salons, contractors, dental offices, law firms, gyms, auto shops, real estate.
+Works for any business: restaurants, salons, contractors, dental offices, law firms, gyms, auto shops, real estate.
 
 Call (563) 287-1146 right now to hear the demo live.
 
@@ -107,11 +125,11 @@ $500/month. No setup fee. Live in 48 hours. Cancel anytime.
 
 calldone.org`,
 
-  `If you're a business owner who misses calls when you're busy or closed — this might help.
+  `If you are a business owner who misses calls when you are busy or closed, this might help.
 
 I built an AI receptionist called CallDone that answers every call 24/7, trained on your specific business. Handles questions, books appointments, captures leads, texts you a summary after every call.
 
-62% of callers won't leave a voicemail. They call your competitor instead.
+62% of callers will not leave a voicemail. They call your competitor instead.
 
 Hear it live: (563) 287-1146
 
@@ -121,7 +139,7 @@ calldone.org`,
 
   `Sharing something useful for any business owner here.
 
-CallDone is an AI receptionist that answers your business calls 24/7 while you're working, after hours, and on weekends. Sounds like a real person on your team. Captures every lead, texts you instantly after every call.
+CallDone is an AI receptionist that answers your business calls 24/7 while you are working, after hours, and on weekends. Sounds like a real person on your team. Captures every lead, texts you instantly after every call.
 
 No more missed customers.
 
@@ -130,6 +148,50 @@ Demo: call (563) 287-1146 and hear it yourself.
 $500/month flat. No setup fee. Cancel anytime.
 
 calldone.org`,
+];
+
+const AGENCYHIRE_POSTS = [
+  `Sharing something for agency owners who do outreach manually.
+
+I built an automated outreach system that sends 1000+ targeted messages per day across Reddit, Facebook, Discord, and X. Finds buyers in your niche and messages them automatically. Runs 24/7.
+
+I deploy it on your accounts in 48 hours. $1,500 flat fee, $500/month retainer after that.
+
+Proof it works: mapzap.org built and marketed entirely with this system.
+
+DM me if interested or start here: https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
+
+  `For any agency owner spending hours on cold outreach every week.
+
+Full automation stack across Reddit, Facebook, Discord, and X. Finds people actively looking for your service and messages them automatically. 1000+ targeted contacts per day.
+
+$1,500 to set up on your accounts, 48 hour delivery. $500/month retainer.
+
+DM me a scope. https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
+];
+
+const AUTOSUB_POSTS = [
+  `Hey everyone, sharing something I built for anyone who does outreach on Reddit.
+
+It is called AutoSub. You connect your Reddit account, set your offer and target keywords, and it finds people posting about needing what you sell and DMs them automatically 24/7.
+
+200+ targeted messages per day. Live dashboard showing all activity. Cancel anytime.
+
+$47 per month at autosub.mooo.com`,
+
+  `Built a tool that automates Reddit DM outreach. If you sell anything and want to reach buyers on Reddit without doing it manually, this might help.
+
+AutoSub connects to your Reddit account, scrapes globally for posts matching your buyer keywords, and sends your DM automatically. Set it up once and it runs forever.
+
+$47/month. autosub.mooo.com`,
+
+  `Sharing something useful for agency owners, freelancers, and founders doing outreach.
+
+AutoSub automates your Reddit outreach. You write your offer and set your target keywords. It finds people actively looking for what you sell and DMs them automatically 24/7.
+
+$47/month, no setup fee, cancel anytime.
+
+autosub.mooo.com`,
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -403,6 +465,8 @@ async function runCycle() {
       ...DEVHIRE_QUERIES.map(q => ({ query: q, type: "DEVHIRE" })),
       ...MAPZAP_QUERIES.map(q => ({ query: q, type: "MAPZAP" })),
       ...CALLDONE_QUERIES.map(q => ({ query: q, type: "CALLDONE" })),
+      ...AGENCYHIRE_QUERIES.map(q => ({ query: q, type: "AGENCYHIRE" })),
+      ...AUTOSUB_QUERIES.map(q => ({ query: q, type: "AUTOSUB" })),
     ];
 
     for (const { query, type } of allQueries) {
@@ -425,6 +489,8 @@ async function runCycle() {
         let postText;
         if (type === "DEVHIRE") postText = pick(DEVHIRE_POSTS);
         else if (type === "CALLDONE") postText = pick(CALLDONE_POSTS);
+        else if (type === "AGENCYHIRE") postText = pick(AGENCYHIRE_POSTS);
+        else if (type === "AUTOSUB") postText = pick(AUTOSUB_POSTS);
         else postText = pick(MAPZAP_POSTS);
 
         const result = await postToGroup(page, group.url, postText);
@@ -442,6 +508,8 @@ async function runCycle() {
             let postText2;
             if (type === "DEVHIRE") postText2 = pick(DEVHIRE_POSTS);
             else if (type === "CALLDONE") postText2 = pick(CALLDONE_POSTS);
+            else if (type === "AGENCYHIRE") postText2 = pick(AGENCYHIRE_POSTS);
+            else if (type === "AUTOSUB") postText2 = pick(AUTOSUB_POSTS);
             else postText2 = pick(MAPZAP_POSTS);
             const postResult2 = await postToGroup(page, group.url, postText2);
             if (postResult2 === "posted") {
