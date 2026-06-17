@@ -33,28 +33,16 @@ const MAPZAP_QUERIES = [
   "sales prospecting",
 ];
 
-const CALLDONE_QUERIES = [
-  "small business owners Los Angeles",
-  "restaurant owners group",
-  "salon owners network",
+const FLOWMATE_QUERIES = [
   "contractors business owners",
-  "dental office owners",
-  "law firm owners",
-  "auto shop owners",
-  "gym owners fitness business",
-  "real estate agents business",
-  "local business owners network",
-  "home services business owners",
   "plumbers electricians contractors",
-];
-
-const AGENCYHIRE_QUERIES = [
-  "digital marketing agency owners",
-  "smma owners group",
-  "marketing agency growth",
-  "agency owner community",
-  "social media marketing agency",
-  "agency outreach help",
+  "home services business owners",
+  "HVAC company owners",
+  "roofing contractors group",
+  "local service business owners",
+  "small business owners Los Angeles",
+  "losing leads slow response",
+  "GoHighLevel agency owners",
 ];
 
 const AUTOSUB_QUERIES = [
@@ -89,85 +77,57 @@ If you need a website or any kind of automation built, send me a DM.`,
 const MAPZAP_POSTS = [
   `Hey everyone, I built something that might be useful for anyone doing cold outreach or prospecting.
 
-It pulls 100 local business leads from Google Maps in about 60 seconds. You type a business type and city, get a CSV with names, phone numbers, addresses, and websites instantly.
+It pulls 100 local business leads from Google Maps in about 60 seconds. You type a business type and city, get a CSV with names, phone numbers, addresses, websites, and emails where available instantly.
 
-$49 per month, unlimited searches. Free preview at mapzap.org if you want to try it before paying.
+$19.99 per month, unlimited searches. Free preview at mapzap.org if you want to try it before paying.
 
 Happy to answer any questions.`,
 
   `Sharing something I built that has been saving me hours on lead research.
 
-MapZap pulls local business leads from Google Maps. Name, phone, address, website as a downloadable CSV. Takes about a minute per search.
+MapZap pulls local business leads from Google Maps. Name, phone, address, website, and email as a downloadable CSV. Takes about a minute per search.
 
-$49 per month gets you unlimited searches.
+$19.99 per month gets you unlimited searches.
 
 Free trial at mapzap.org`,
 
   `Built a tool for anyone who does cold calling or outreach prospecting.
 
-Type any business niche and city, get 100 leads as a CSV in 60 seconds. Google Maps data, always fresh.
+Type any business niche and city, get 100 leads as a CSV in 60 seconds, emails included where available. Google Maps data, always fresh.
 
-$49/month unlimited searches. Try 5 leads free first with no credit card.
+$19.99/month unlimited searches. Try 5 leads free first with no credit card.
 
 mapzap.org`,
 ];
 
-const CALLDONE_POSTS = [
-  `Hey everyone, sharing something I built for local business owners who miss calls.
+const FLOWMATE_POSTS = [
+  `Hey everyone, sharing something I built for local service business owners who lose leads to slow follow up.
 
-It is called CallDone. An AI receptionist that answers every call to your business 24/7. It sounds like a real person, handles FAQs, captures caller info, and texts you a full summary the second each call ends.
+It is called FlowMate. Roughly 78% of customers go with whoever responds first, so if a lead sits for even a few minutes you're probably losing it. FlowMate automatically texts and emails every new lead within 60 seconds, runs 24/7 in the background.
 
-Works for any business: restaurants, salons, contractors, dental offices, law firms, gyms, auto shops, real estate.
+I build it and run it for you, nothing for you to learn or manage. Works for plumbers, HVAC, roofers, electricians, and any local service business getting leads from ads or Google.
 
-Call (563) 287-1146 right now to hear the demo live.
+$297 for the first month to test it, $797/month after that if it's working for you.
 
-$500/month. No setup fee. Live in 48 hours. Cancel anytime.
+flowmate.live`,
 
-calldone.org`,
+  `If you run a local service business and aren't responding to leads within a minute or two, you're losing most of them to competitors.
 
-  `If you are a business owner who misses calls when you are busy or closed, this might help.
+I built FlowMate to fix that. Automated text and email follow up on every new lead within 60 seconds, done for you, runs 24/7.
 
-I built an AI receptionist called CallDone that answers every call 24/7, trained on your specific business. Handles questions, books appointments, captures leads, texts you a summary after every call.
+Think of it like a GoHighLevel setup except I build and run it for you instead of you learning new software.
 
-62% of callers will not leave a voicemail. They call your competitor instead.
+$297 first month, $797/month ongoing.
 
-Hear it live: (563) 287-1146
+flowmate.live`,
 
-$500/month, no contracts, no setup fee, live in 48 hours.
+  `Sharing something for contractors, plumbers, HVAC, roofers, anyone running a local service business.
 
-calldone.org`,
+FlowMate automatically follows up with every new lead by text and email within 60 seconds of them coming in. No more losing business because you were on a job and couldn't respond fast enough.
 
-  `Sharing something useful for any business owner here.
+I set it up and run it for you. $297 for the first month, $797/month after.
 
-CallDone is an AI receptionist that answers your business calls 24/7 while you are working, after hours, and on weekends. Sounds like a real person on your team. Captures every lead, texts you instantly after every call.
-
-No more missed customers.
-
-Demo: call (563) 287-1146 and hear it yourself.
-
-$500/month flat. No setup fee. Cancel anytime.
-
-calldone.org`,
-];
-
-const AGENCYHIRE_POSTS = [
-  `Sharing something for agency owners who do outreach manually.
-
-I built an automated outreach system that sends 1000+ targeted messages per day across Reddit, Facebook, Discord, and X. Finds buyers in your niche and messages them automatically. Runs 24/7.
-
-I deploy it on your accounts in 48 hours. $1,500 flat fee, $500/month retainer after that.
-
-Proof it works: mapzap.org built and marketed entirely with this system.
-
-DM me if interested or start here: https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
-
-  `For any agency owner spending hours on cold outreach every week.
-
-Full automation stack across Reddit, Facebook, Discord, and X. Finds people actively looking for your service and messages them automatically. 1000+ targeted contacts per day.
-
-$1,500 to set up on your accounts, 48 hour delivery. $500/month retainer.
-
-DM me a scope. https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
+flowmate.live`,
 ];
 
 const AUTOSUB_POSTS = [
@@ -177,21 +137,21 @@ It is called AutoSub. You connect your Reddit account, set your offer and target
 
 200+ targeted messages per day. Live dashboard showing all activity. Cancel anytime.
 
-$47 per month at autosub.mooo.com`,
+$19.99 per month at autosub.online`,
 
   `Built a tool that automates Reddit DM outreach. If you sell anything and want to reach buyers on Reddit without doing it manually, this might help.
 
 AutoSub connects to your Reddit account, scrapes globally for posts matching your buyer keywords, and sends your DM automatically. Set it up once and it runs forever.
 
-$47/month. autosub.mooo.com`,
+$19.99/month. autosub.online`,
 
   `Sharing something useful for agency owners, freelancers, and founders doing outreach.
 
 AutoSub automates your Reddit outreach. You write your offer and set your target keywords. It finds people actively looking for what you sell and DMs them automatically 24/7.
 
-$47/month, no setup fee, cancel anytime.
+$19.99/month, no setup fee, cancel anytime.
 
-autosub.mooo.com`,
+autosub.online`,
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -357,6 +317,13 @@ async function joinGroup(page, groupUrl) {
   }
 }
 
+function pickPostForType(type) {
+  if (type === "DEVHIRE") return pick(DEVHIRE_POSTS);
+  if (type === "FLOWMATE") return pick(FLOWMATE_POSTS);
+  if (type === "AUTOSUB") return pick(AUTOSUB_POSTS);
+  return pick(MAPZAP_POSTS);
+}
+
 async function postToGroup(page, groupUrl, postText) {
   try {
     await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 30000 });
@@ -464,8 +431,7 @@ async function runCycle() {
     const allQueries = [
       ...DEVHIRE_QUERIES.map(q => ({ query: q, type: "DEVHIRE" })),
       ...MAPZAP_QUERIES.map(q => ({ query: q, type: "MAPZAP" })),
-      ...CALLDONE_QUERIES.map(q => ({ query: q, type: "CALLDONE" })),
-      ...AGENCYHIRE_QUERIES.map(q => ({ query: q, type: "AGENCYHIRE" })),
+      ...FLOWMATE_QUERIES.map(q => ({ query: q, type: "FLOWMATE" })),
       ...AUTOSUB_QUERIES.map(q => ({ query: q, type: "AUTOSUB" })),
     ];
 
@@ -486,13 +452,7 @@ async function runCycle() {
           continue;
         }
 
-        let postText;
-        if (type === "DEVHIRE") postText = pick(DEVHIRE_POSTS);
-        else if (type === "CALLDONE") postText = pick(CALLDONE_POSTS);
-        else if (type === "AGENCYHIRE") postText = pick(AGENCYHIRE_POSTS);
-        else if (type === "AUTOSUB") postText = pick(AUTOSUB_POSTS);
-        else postText = pick(MAPZAP_POSTS);
-
+        const postText = pickPostForType(type);
         const result = await postToGroup(page, group.url, postText);
 
         if (result === "posted") {
@@ -505,12 +465,7 @@ async function runCycle() {
           const joinResult = await joinGroup(page, group.url);
           if (joinResult === "joined") {
             await sleep(rand(5000, 8000));
-            let postText2;
-            if (type === "DEVHIRE") postText2 = pick(DEVHIRE_POSTS);
-            else if (type === "CALLDONE") postText2 = pick(CALLDONE_POSTS);
-            else if (type === "AGENCYHIRE") postText2 = pick(AGENCYHIRE_POSTS);
-            else if (type === "AUTOSUB") postText2 = pick(AUTOSUB_POSTS);
-            else postText2 = pick(MAPZAP_POSTS);
+            const postText2 = pickPostForType(type);
             const postResult2 = await postToGroup(page, group.url, postText2);
             if (postResult2 === "posted") {
               posted[group.url] = new Date().toISOString();
