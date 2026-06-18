@@ -85,6 +85,26 @@ const AUTOSUB_COMMENTS = [
   `i built AutoSub for this. automated Reddit DM outreach. set it up once and it finds people looking for what you sell and messages them automatically. $19.99/month, no setup fee. autosub.online`,
 ];
 
+// Buyer-intent detection. A post must match one of these before we comment on it.
+// This replaces "comment on every post" with "comment only when someone is actually
+// expressing the problem this product solves." Lower volume, higher relevance, lower spam risk.
+const devHireIntentRegex = /\b(need (a |an )?(developer|dev|programmer|coder|website|web developer|app|chatbot|bot|scraper|landing page|tool|dashboard|automation)|looking for (a |an )?(developer|dev|programmer)|hire (a |an )?(developer|dev|programmer)|need (someone|anyone) to (build|create|develop|code|fix|automate)|budget (\$|usd)|willing to pay|will pay)\b/i;
+const mapzapIntentRegex = /\b(need (more )?leads|need (more )?clients|need (more )?customers|find(ing)? (clients|customers|leads)|lead list|lead source|how (do i|to) get (more )?(leads|clients|customers)|struggling to find (clients|customers)|prospect(ing)? list|cold outreach leads)\b/i;
+const flowMateIntentRegex = /\b(lose(s)? leads|losing leads|leads (go|going) cold|respond(ing)? (too )?(slow|late)|slow to respond|follow up (with leads|faster|automatically)|forget to (follow up|text back)|miss(ing)? leads|automatic(ally)? (text|respond|follow up)|instant lead response|never miss a lead|GoHighLevel|automated follow up)\b/i;
+const autoSubIntentRegex = /\b(automate (my )?(outreach|dms|messaging|marketing)|outreach automation|too much time (on|doing) outreach|scale (my )?(outreach|dms)|send more (dms|messages)|cold outreach (not working|strategy|tips)|lead generation (automation|tool))\b/i;
+const blockRegex = /\b(for hire|available for hire|hire me|my rates|i build websites|offering my services|laid off|resume|cover letter|job hunting)\b/i;
+
+function detectIntent(postText, type) {
+  const text = (postText || "").toLowerCase();
+  if (text.length < 8) return false;
+  if (blockRegex.test(text)) return false;
+  if (type === "DEVHIRE") return devHireIntentRegex.test(text);
+  if (type === "MAPZAP") return mapzapIntentRegex.test(text);
+  if (type === "FLOWMATE") return flowMateIntentRegex.test(text);
+  if (type === "AUTOSUB") return autoSubIntentRegex.test(text);
+  return false;
+}
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
@@ -190,7 +210,7 @@ async function joinGroup(page, groupUrl) {
   }
 }
 
-async function getRecentPostUrls(page, groupUrl) {
+async function getRecentPosts(page, groupUrl) {
   await page.goto(groupUrl, { waitUntil: "networkidle2", timeout: 60000 });
   await sleep(rand(6000, 8000));
   for (let i = 0; i < 10; i++) {
@@ -198,7 +218,7 @@ async function getRecentPostUrls(page, groupUrl) {
     await sleep(rand(800, 1200));
   }
 
-  const postUrls = await page.evaluate((maxAgeHours) => {
+  const posts = await page.evaluate((maxAgeHours) => {
     const seen = new Set();
     const results = [];
 
@@ -208,9 +228,11 @@ async function getRecentPostUrls(page, groupUrl) {
 
       let ageOk = true;
       let el = a;
+      let postContainer = a;
       for (let i = 0; i < 8; i++) {
         if (!el.parentElement) break;
         el = el.parentElement;
+        postContainer = el;
         const text = el.innerText || '';
         const hourMatch = text.match(/(\d+)\s*h(?:ours?)?/i);
         const dayMatch = text.match(/(\d+)\s*d(?:ays?)?/i);
@@ -222,15 +244,25 @@ async function getRecentPostUrls(page, groupUrl) {
 
       if (ageOk) {
         seen.add(base);
-        results.push(base);
+        // Walk up a bit further to capture the actual post body text for intent matching
+        let textEl = a;
+        let bodyText = '';
+        for (let i = 0; i < 12; i++) {
+          if (!textEl.parentElement) break;
+          textEl = textEl.parentElement;
+          if (textEl.innerText && textEl.innerText.length > bodyText.length && textEl.innerText.length < 3000) {
+            bodyText = textEl.innerText;
+          }
+        }
+        results.push({ url: base, text: bodyText });
       }
     });
 
     return results.slice(0, 10);
   }, MAX_POST_AGE_HOURS);
 
-  log("INFO", `${groupUrl.split('/groups/')[1]}: found ${postUrls.length} recent post URLs`);
-  return postUrls;
+  log("INFO", `${groupUrl.split('/groups/')[1]}: found ${posts.length} recent posts`);
+  return posts;
 }
 
 async function commentOnPost(page, postUrl, commentText) {
@@ -314,11 +346,12 @@ async function runCycle() {
           await sleep(rand(3000, 5000));
         }
 
-        const postUrls = await getRecentPostUrls(page, groupUrl);
+        const posts = await getRecentPosts(page, groupUrl);
 
-        for (const postUrl of postUrls) {
+        for (const post of posts) {
           if (commentsThisCycle >= MAX_COMMENTS_PER_CYCLE) break;
-          if (commented[postUrl]) continue;
+          if (commented[post.url]) continue;
+          if (!detectIntent(post.text, type)) continue;
 
           let commentText;
           if (type === "DEVHIRE") commentText = pick(DEVHIRE_COMMENTS);
@@ -326,19 +359,19 @@ async function runCycle() {
           else if (type === "FLOWMATE") commentText = pick(FLOWMATE_COMMENTS);
           else commentText = pick(AUTOSUB_COMMENTS);
 
-          log("MATCH", `[${type}] ${postUrl.substring(0, 70)}`);
+          log("MATCH", `[${type}] ${post.url.substring(0, 70)}`);
 
           try {
-            const success = await commentOnPost(page, postUrl, commentText);
+            const success = await commentOnPost(page, post.url, commentText);
             if (!success) {
-              log("SKIP", `Could not comment on ${postUrl.substring(0, 60)}`);
+              log("SKIP", `Could not comment on ${post.url.substring(0, 60)}`);
               continue;
             }
 
-            commented[postUrl] = new Date().toISOString();
+            commented[post.url] = new Date().toISOString();
             saveCommented(commented);
             commentsThisCycle++;
-            log("COMMENTED", `[${type}] ${commentsThisCycle}/${MAX_COMMENTS_PER_CYCLE} ${postUrl.substring(0, 60)}`);
+            log("COMMENTED", `[${type}] ${commentsThisCycle}/${MAX_COMMENTS_PER_CYCLE} ${post.url.substring(0, 60)}`);
             log("INFO", `Waiting ${Math.round(MIN_DELAY_MS/60000)} to ${Math.round(MAX_DELAY_MS/60000)} min...`);
             await sleep(rand(MIN_DELAY_MS, MAX_DELAY_MS));
 
