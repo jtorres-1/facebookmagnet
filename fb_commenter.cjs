@@ -5,6 +5,7 @@ const fs = require("fs");
 const SESSION_PATH = "./session.json";
 const COMMENTED_PATH = "./fb_commented_posts.json";
 const JOINED_PATH = "./fb_joined_groups.json";
+const BANNED_PATH = "./fb_banned_groups.json";
 const LOG_PATH = "./fb_commenter.log";
 
 const MAX_COMMENTS_PER_CYCLE = 15;
@@ -33,28 +34,16 @@ const MAPZAP_QUERIES = [
   "cold outreach leads",
 ];
 
-const AGENCYHIRE_QUERIES = [
-  "struggling to scale my agency",
-  "need more clients for my agency",
-  "agency outreach help",
-  "smma outreach",
-  "how to get clients for my agency",
-  "agency lead generation",
-  "marketing agency growth",
-  "need outreach for my agency",
-  "automate my agency outreach",
-  "agency owner need help with outreach",
-];
-
-const CALLDONE_QUERIES = [
+const FLOWMATE_QUERIES = [
+  "losing leads slow response",
+  "need to follow up with leads faster",
+  "contractors losing leads",
+  "plumbers losing customers",
+  "HVAC company losing leads",
   "small business owners Los Angeles",
-  "restaurant owners group",
-  "salon owners network",
-  "contractors business owners",
-  "plumbers electricians contractors",
   "home services business owners",
-  "missing calls small business",
-  "need a receptionist small business",
+  "missing leads small business",
+  "need automated follow up",
 ];
 
 const AUTOSUB_QUERIES = [
@@ -76,31 +65,24 @@ const DEVHIRE_COMMENTS = [
 ];
 
 const MAPZAP_COMMENTS = [
-  `this might help. mapzap.org pulls 100 local business leads from Google Maps in 60 seconds as a CSV. name, phone, address, website. $49/month unlimited, free preview no card needed`,
-  `built something for this. mapzap.org scrapes 100 local businesses in 60 seconds. type a niche and city, get a CSV instantly. $49/month unlimited, free to try first`,
-  `mapzap.org might solve this. 100 local business leads from Google Maps in 60 seconds. CSV with name, phone, address, website. $49/month unlimited searches`,
-  `i built mapzap.org for exactly this. type any business type and city, get 100 leads as a CSV in 60 seconds. $49/month unlimited, free preview available`,
+  `this might help. mapzap.org pulls 100 local business leads from Google Maps in 60 seconds as a CSV. name, phone, address, website, email where available. $19.99/month unlimited, free preview no card needed`,
+  `built something for this. mapzap.org scrapes 100 local businesses in 60 seconds. type a niche and city, get a CSV instantly with emails included. $19.99/month unlimited, free to try first`,
+  `mapzap.org might solve this. 100 local business leads from Google Maps in 60 seconds. CSV with name, phone, address, website, email. $19.99/month unlimited searches`,
+  `i built mapzap.org for exactly this. type any business type and city, get 100 leads as a CSV in 60 seconds, emails included where available. $19.99/month unlimited, free preview available`,
 ];
 
-const CALLDONE_COMMENTS = [
-  `this is exactly what calldone.org solves. AI receptionist that answers every call 24/7, handles FAQs, captures leads, texts you a summary after every call. $500/month no setup fee. call the demo: (563) 287-1146`,
-  `calldone.org might help. AI receptionist answers your business calls 24/7, sounds like a real person, captures every lead, texts you instantly. $500/month flat, cancel anytime. demo: (563) 287-1146`,
-  `built calldone.org for this exact problem. AI answers every call 24/7, trained on your business, texts you after every call. $500/month no contracts. hear it live: (563) 287-1146`,
-  `calldone.org answers this. AI receptionist for your business, 24/7, no missed calls ever. captures leads, handles questions, texts you a summary. $500/month, live in 48hrs. demo: (563) 287-1146`,
-];
-
-const AGENCYHIRE_COMMENTS = [
-  `i automate exactly this. built an outreach system that sends 1000+ targeted messages per day across Reddit, Facebook, Discord, and X to your ideal clients. set it up on your agency in 48 hours, flat fee $1,500. $500/month to keep it running. deposit to start: https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d DM me if interested`,
-  `this is solvable with automation. i run an outreach stack that hits Reddit, Facebook, Discord, and X simultaneously. finds your ideal clients, messages them automatically, 1000+ per day. deploy it for your agency in 48hrs for $1,500 flat. retainer $500/month. https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
-  `built an automated outreach system for exactly this. Reddit DMs, Facebook group comments, Discord posts, X replies, all running 24/7 targeting your niche. $1,500 setup, 48 hour delivery, $500/month retainer. works while you sleep. DM me a scope: https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
-  `scale your agency outreach without hiring. i deploy a full automated system on your accounts. Reddit, Facebook, Discord, X. 1000+ targeted messages per day to verified buyers in your niche. $1,500 flat to set up, $500/month to maintain. deposit here: https://buy.stripe.com/9B6eVd7vteL23kedQ22Ry0d`,
+const FLOWMATE_COMMENTS = [
+  `this is a lead response problem. roughly 78% of customers go with whoever responds first. i built flowmate.live, it automatically texts and emails every new lead within 60 seconds, runs 24/7. $297 first month, $797/month after. flowmate.live`,
+  `built flowmate.live for exactly this. auto texts and emails every new lead within 60 seconds so you stop losing business to whoever calls back first. i set it up and run it for you. $297 first month, $797/month after. flowmate.live`,
+  `if you're getting leads and not responding instantly you're losing most of them. flowmate.live fixes that, automated text and email follow up within 60 seconds, no software to learn. $297 first month, $797/month after`,
+  `this is solvable with automation. flowmate.live texts and emails every new lead within 60 seconds, 24/7, done for you. $297 to try the first month, $797/month if it's working for you. flowmate.live`,
 ];
 
 const AUTOSUB_COMMENTS = [
-  `this might help. built AutoSub, it automates your Reddit outreach. connect your Reddit account, set your keywords and offer, it finds people posting about needing what you sell and DMs them automatically 24/7. $47/month at autosub.mooo.com`,
-  `built something for exactly this. AutoSub scrapes Reddit globally for posts matching your buyer keywords and sends your DM automatically. 200+ targeted messages per day, live dashboard. $47/month at autosub.mooo.com`,
-  `AutoSub solves this. connect your Reddit account, set your offer and target keywords, it runs 24/7 finding buyers and DMing them automatically. $47/month. autosub.mooo.com`,
-  `i built AutoSub for this. automated Reddit DM outreach. set it up once and it finds people looking for what you sell and messages them automatically. $47/month, no setup fee. autosub.mooo.com`,
+  `this might help. built AutoSub, it automates your Reddit outreach. connect your Reddit account, set your keywords and offer, it finds people posting about needing what you sell and DMs them automatically 24/7. $19.99/month at autosub.online`,
+  `built something for exactly this. AutoSub scrapes Reddit globally for posts matching your buyer keywords and sends your DM automatically. 200+ targeted messages per day, live dashboard. $19.99/month at autosub.online`,
+  `AutoSub solves this. connect your Reddit account, set your offer and target keywords, it runs 24/7 finding buyers and DMing them automatically. $19.99/month. autosub.online`,
+  `i built AutoSub for this. automated Reddit DM outreach. set it up once and it finds people looking for what you sell and messages them automatically. $19.99/month, no setup fee. autosub.online`,
 ];
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -129,6 +111,15 @@ function loadJoined() {
 
 function saveJoined(j) {
   fs.writeFileSync(JOINED_PATH, JSON.stringify(j, null, 2));
+}
+
+function loadBanned() {
+  if (!fs.existsSync(BANNED_PATH)) return [];
+  try { return JSON.parse(fs.readFileSync(BANNED_PATH)); } catch { return []; }
+}
+
+function saveBanned(b) {
+  fs.writeFileSync(BANNED_PATH, JSON.stringify(b, null, 2));
 }
 
 async function loadSession(page) {
@@ -281,6 +272,7 @@ async function commentOnPost(page, postUrl, commentText) {
 async function runCycle() {
   const commented = loadCommented();
   const joined = loadJoined();
+  const banned = loadBanned();
   let commentsThisCycle = 0;
 
   const browser = await puppeteer.launch({
@@ -298,8 +290,7 @@ async function runCycle() {
     const allQueries = [
       ...DEVHIRE_QUERIES.map(q => ({ query: q, type: "DEVHIRE" })),
       ...MAPZAP_QUERIES.map(q => ({ query: q, type: "MAPZAP" })),
-      ...CALLDONE_QUERIES.map(q => ({ query: q, type: "CALLDONE" })),
-      ...AGENCYHIRE_QUERIES.map(q => ({ query: q, type: "AGENCYHIRE" })),
+      ...FLOWMATE_QUERIES.map(q => ({ query: q, type: "FLOWMATE" })),
       ...AUTOSUB_QUERIES.map(q => ({ query: q, type: "AUTOSUB" })),
     ].sort(() => Math.random() - 0.5);
 
@@ -310,12 +301,16 @@ async function runCycle() {
 
       for (const groupUrl of groupUrls) {
         if (commentsThisCycle >= MAX_COMMENTS_PER_CYCLE) break;
+        if (banned.includes(groupUrl)) { log("SKIP", `Banned group ${groupUrl}`); continue; }
 
         if (!joined[groupUrl]) {
           const joinResult = await joinGroup(page, groupUrl);
           joined[groupUrl] = joinResult;
           saveJoined(joined);
-          if (joinResult === "error") continue;
+          if (joinResult === "error") {
+            if (!banned.includes(groupUrl)) { banned.push(groupUrl); saveBanned(banned); }
+            continue;
+          }
           await sleep(rand(3000, 5000));
         }
 
@@ -328,8 +323,7 @@ async function runCycle() {
           let commentText;
           if (type === "DEVHIRE") commentText = pick(DEVHIRE_COMMENTS);
           else if (type === "MAPZAP") commentText = pick(MAPZAP_COMMENTS);
-          else if (type === "CALLDONE") commentText = pick(CALLDONE_COMMENTS);
-          else if (type === "AGENCYHIRE") commentText = pick(AGENCYHIRE_COMMENTS);
+          else if (type === "FLOWMATE") commentText = pick(FLOWMATE_COMMENTS);
           else commentText = pick(AUTOSUB_COMMENTS);
 
           log("MATCH", `[${type}] ${postUrl.substring(0, 70)}`);
